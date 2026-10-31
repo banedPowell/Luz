@@ -1,0 +1,37 @@
+{
+  "name": "Luz",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@nuxt/ui": "4.9.0",
+    "@pinia/nuxt": "^0.11.3",
+    "@vueuse/integrations": "^14.3.0",
+    "archiver": "^8.0.0",
+    "better-sqlite3": "^12.11.1",
+    "drizzle-orm": "^0.45.2",
+    "music-metadata": "^11.13.0",
+    "nanoid": "^5.1.16",
+    "node-id3": "^0.2.9",
+    "nuxt": "^4.4.8",
+    "pinia": "^3.0.4",
+    "sortablejs": "^1.15.7",
+    "tailwindcss": "^4.3.2",
+    "vue": "^3.5.38",
+    "vue-router": "^5.1.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/archiver": "^8.0.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^26.1.0",
+    "@types/sortablejs": "^1.15.9",
+    "drizzle-kit": "^0.31.10"
+  }
+}
