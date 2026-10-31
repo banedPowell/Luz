@@ -46,6 +46,8 @@ export default defineConfig({
 				},
 			},
 			'packages/*',
+			// Nuxt tests run in their own @nuxt/test-utils config (ADR 0001)
+			'apps/web',
 		],
 	},
 });

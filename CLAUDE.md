@@ -8,7 +8,7 @@ Luz is a local-first music library manager: it downloads music with yt-dlp and F
 
 - **Today:** a web app for one person on their own computer (milestones v0.x → v1.0).
 - **Later:** device profiles, metadata providers, configurable sources, then a self-hosted Docker server with optional authentication and several users. A mobile app in the very long term.
-- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` is a bare Nuxt app and `packages/core` is still empty. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
+- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` is still empty. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
 
 Read before working:
 
@@ -34,7 +34,10 @@ Target layout (create packages and folders only when needed):
 
 ```
 apps/web/                 Nuxt app: UI (app/) and API (server/)
-  app/                    pages, components, composables, stores
+  app/                    pages, layouts, components, composables, stores, utils
+  app/app.config.ts       Nuxt UI theme: neutral colour, pixelarticons icons, subtle inputs
+  test/nuxt/              component tests in the Nuxt environment (@nuxt/test-utils)
+  vitest.config.ts        the web test project, listed in the root test.projects
   server/api/             thin route handlers
   server/services/        application services (use cases)
   server/infrastructure/  db, yt-dlp, ffmpeg, filesystem adapters
@@ -43,7 +46,7 @@ scripts/                  repository tooling run by Node (e.g. the commit-msg ch
 docs/                     roadmap and architecture decisions
 .vite-hooks/              Git hooks: pre-commit runs `vp staged`, commit-msg checks Conventional Commits
 vite.config.ts            shared Vite+ config: fmt (Oxfmt), lint (Oxlint), staged files, test projects
-pnpm-workspace.yaml       workspace packages and allowed dependency build scripts
+pnpm-workspace.yaml       workspace packages, allowed build scripts, the vite/vitest catalog and overrides
 ```
 
 Lint and format settings live only in the root `vite.config.ts`; packages never add their own `fmt` or `lint` blocks.

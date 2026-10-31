@@ -5,3 +5,20 @@ packages:
 # pnpm blocks dependency build scripts unless listed here
 allowBuilds:
   esbuild: true
+  # Its postinstall only switches between Vue 2 and 3 builds; the default
+  # entry already targets Vue 3, so the script is denied rather than run
+  vue-demi: false
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vitest: 5.0.5
+  vite-plus: 1.4.0
+overrides:
+  vite@*: 'catalog:'
+  vitest@*: 'catalog:'
+peerDependencyRules:
+  allowAny:
+    - vite
+    - vitest
+  allowedVersions:
+    vite: '*'
+    vitest: '*'
