@@ -1,0 +1,18 @@
+# LF everywhere so formatters and linters agree on every OS
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.db binary
+*.mp3 binary
+*.flac binary
+*.m4a binary
+*.opus binary
+*.ogg binary
+*.wav binary

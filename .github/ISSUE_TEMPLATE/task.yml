@@ -1,0 +1,19 @@
+name: Task
+description: Tooling, refactoring, CI, dependencies, documentation
+labels: [chore]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why this task, and why now?
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ]
+    validations:
+      required: true

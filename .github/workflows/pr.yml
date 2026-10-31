@@ -1,0 +1,88 @@
+name: PR
+
+# pull_request_target so labels can be written on Dependabot PRs too.
+# Nothing here checks out or runs the PR code.
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  conventions:
+    # Required status check on dev and main
+    name: Conventions
+    runs-on: ubuntu-latest
+    steps:
+      # The title becomes the squashed commit, which the release reads
+      - name: Title follows Conventional Commits
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            style
+            test
+            docs
+            build
+            ci
+            chore
+            revert
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: The subject "{subject}" must start with a lowercase letter.
+
+      - name: Branches follow the workflow
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          if [ "$BASE" = main ]; then
+            if [ "$HEAD" != dev ]; then
+              echo "::error::Only dev is merged into main. Open this PR against dev."
+              exit 1
+            fi
+            exit 0
+          fi
+
+          case "$HEAD" in dependabot/*) exit 0 ;; esac
+
+          pattern='^(feat|fix|perf|refactor|style|test|docs|build|ci|chore|revert)/[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'
+          if ! [[ "$HEAD" =~ $pattern ]]; then
+            echo "::error::Branch \"$HEAD\" must be named <type>/<issue>-<slug>, e.g. feat/12-download-queue."
+            exit 1
+          fi
+
+  label:
+    name: Label
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label from title type
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const labelByType = {
+              feat: 'feature',
+              perf: 'feature',
+              fix: 'bug',
+              revert: 'bug',
+            };
+            const typeLabels = ['feature', 'bug', 'chore'];
+
+            const pr = context.payload.pull_request;
+            const type = pr.title.match(/^(\w+)(\(.+\))?!?:/)?.[1];
+            const wanted = type ? (labelByType[type] ?? 'chore') : undefined;
+            const issue = { ...context.repo, issue_number: pr.number };
+
+            // A retitled PR drops the type label it no longer matches
+            for (const { name } of pr.labels)
+              if (typeLabels.includes(name) && name !== wanted)
+                await github.rest.issues.removeLabel({ ...issue, name });
+            if (wanted && !pr.labels.some(({ name }) => name === wanted))
+              await github.rest.issues.addLabels({ ...issue, labels: [wanted] });

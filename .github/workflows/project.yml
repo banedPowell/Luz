@@ -1,0 +1,66 @@
+name: Project board
+
+# Keeps every issue's Status on the Luz project board in sync with what
+# happens in the repository. The rules live in .github/scripts/project-sync.mjs.
+#
+# Needs the PROJECT_TOKEN secret: a personal access token allowed to write
+# the user-owned project (GITHUB_TOKEN cannot). Without it, the job is skipped.
+on:
+  issues:
+    types: [opened, reopened, closed, milestoned, demilestoned]
+  # Never checks out or runs the PR code: the script comes from the default branch
+  pull_request_target:
+    types: [opened, reopened, edited, ready_for_review, converted_to_draft, closed]
+  create:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project-${{ github.event.issue.number || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_OWNER: banedPowell
+  PROJECT_NUMBER: '4'
+
+jobs:
+  sync:
+    name: Sync
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check token
+        id: token
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          if [ -z "$PROJECT_TOKEN" ]; then
+            echo "::warning::PROJECT_TOKEN is not set, the board is not updated."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout scripts
+        if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Sync board
+        if: steps.token.outputs.present == 'true'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            const { default: sync } = await import('${{ github.workspace }}/.github/scripts/project-sync.mjs');
+            await sync({
+              github,
+              context,
+              core,
+              owner: process.env.PROJECT_OWNER,
+              number: Number(process.env.PROJECT_NUMBER),
+            });

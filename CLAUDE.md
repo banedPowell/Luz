@@ -1,0 +1,109 @@
+# Luz: guide for agents
+
+This file tells any agent working in this repository what the project is, how it is built and what is off limits. Read it fully before doing anything, then read the documents it points to when your task touches them.
+
+## The project
+
+Luz is a local-first music library manager: it downloads music with yt-dlp and FFmpeg, tags it, and keeps it organised as plain audio files on the user's disk. It is a **file manager first**; playback is a convenience.
+
+- **Today:** a web app for one person on their own computer (milestones v0.x → v1.0).
+- **Later:** device profiles, metadata providers, configurable sources, then a self-hosted Docker server with optional authentication and several users. A mobile app in the very long term.
+- **Status:** v0.1 Foundation. The monorepo is being scaffolded; update the [Commands](#commands) and [Layout](#layout) sections when that changes.
+
+Read before working:
+
+- [docs/ROADMAP.md](docs/ROADMAP.md): milestones, scope and what is explicitly out of scope.
+- [docs/decisions/](docs/decisions/): architecture decisions. Do not contradict one without proposing a new record.
+- [CONTRIBUTING.md](CONTRIBUTING.md): issues, branches, PRs, releases, board.
+
+The `prototype` branch holds a throwaway first version ([ADR 0004](docs/decisions/0004-prototype-as-reference.md)). Read it for ideas; never merge it, never copy code from it without rewriting it to current standards and testing it.
+
+## Stack
+
+- **Monorepo:** pnpm workspace driven by **Vite+** (`vp`). pnpm stays the package manager underneath.
+- **Web app:** Nuxt 4, Nuxt UI 4, Tailwind CSS 4, Vue 3 (`<script setup lang="ts">`), Pinia only for cross-page client state.
+- **Server:** Nitro (inside Nuxt), Zod for every input.
+- **Database:** SQLite through Drizzle ORM and `@libsql/client`, relational schema, drizzle-kit migrations.
+- **External tools:** yt-dlp, FFmpeg and ffprobe, behind adapters.
+- **Tests:** Vitest; `@nuxt/test-utils` for the web app.
+- **Node:** version in `.nvmrc`.
+
+## Layout
+
+Target layout (create packages only when needed):
+
+```
+apps/web/                 Nuxt app: UI (app/) and API (server/)
+  app/                    pages, components, composables, stores
+  server/api/             thin route handlers
+  server/services/        application services (use cases)
+  server/infrastructure/  db, yt-dlp, ffmpeg, filesystem adapters
+packages/core/            pure TypeScript domain: types, Zod schemas, rules
+docs/                     roadmap and architecture decisions
+```
+
+## Commands
+
+All commands go through `vp`. Nuxt commands run as scripts through `vp run`, because `vp dev` and `vp build` run plain Vite, not Nuxt.
+
+| Command             | Purpose                                   |
+| ------------------- | ----------------------------------------- |
+| `vp install`        | Install dependencies (delegates to pnpm)  |
+| `vp run dev`        | Start the Nuxt dev server                 |
+| `vp check`          | Format check, lint and types              |
+| `vp run typecheck`  | Nuxt type check (`vue-tsc`)               |
+| `vp run test`       | All tests                                 |
+| `vp run build`      | Production build                          |
+
+Before declaring work done, run what CI runs: `vp check`, `vp run typecheck`, `vp run test`, `vp run build`.
+
+## Architecture rules
+
+- `packages/core` contains no Vue, Nuxt, Nitro, database or file system code. It is pure, deterministic and fully unit-tested.
+- Route handlers in `server/api/` stay thin: validate input with Zod, call a service, return the result. No business logic in handlers.
+- Server code never imports from `app/`; client code never imports from `server/`. Shared types come from `packages/core`.
+- yt-dlp, FFmpeg and the file system are reached only through adapters in `server/infrastructure/`. Tests use fakes; they never call the real binaries or the network.
+- Configuration comes from environment variables via `runtimeConfig`, documented in `.env.example`. No hard-coded paths ([ADR 0003](docs/decisions/0003-twelve-factor-config.md)).
+- The audio files are the source of truth for tags; the database is an index a rescan can rebuild.
+- Every schema change ships with a generated migration in the same PR. Use real columns for anything queried; JSON columns only for opaque payloads.
+- Operations that modify or delete the user's files are explicit, confirmed in the UI and covered by tests.
+
+## Code style
+
+- English everywhere: identifiers, comments, docs, commits, issues. (Talking with the user in French is fine.)
+- Tabs, LF, formatting by Oxfmt: never format by hand against the tool.
+- TypeScript strict. No `any`, no `@ts-ignore`; use `unknown` and narrow.
+- Comments explain why, not what.
+- UI: Nuxt UI components first, theme tokens rather than raw colours, works in light and dark mode and on narrow screens, accessible (labels, keyboard, focus).
+- Small, focused modules. Name things after the domain (track, album, artist, playlist, download job, device profile).
+
+## Workflow
+
+1. Work from an issue. No issue, no work: ask the user to create one or propose one.
+2. Branch from an up-to-date `dev`: `<type>/<issue>-<slug>` (e.g. `feat/12-download-queue`).
+3. Commit in Conventional Commits, lowercase subject.
+4. Open a PR against `dev` with `Closes #<issue>` and the template filled in; title in Conventional Commits.
+5. Keep the PR to one subject and ideally under 400 changed lines. Anything else you notice becomes a new issue.
+6. Update docs in the same PR when behaviour, commands or decisions change (README, this file, ROADMAP, ADR).
+
+## Never
+
+- Commit or push directly to `main` or `dev`, force push to them, or delete them.
+- Merge a PR, create a tag or a release, or change repository settings and rulesets unless the user explicitly asks.
+- Bypass checks: no `--no-verify`, no disabled lint rules or skipped tests to get green, no weakened CI.
+- Merge or rebase the `prototype` branch into anything.
+- Add a dependency without saying why in the PR; prefer what the stack already provides.
+- Edit a migration that has already been merged.
+- Commit secrets, `.env` files, cookies, databases, downloaded music or personal data.
+- Run yt-dlp or FFmpeg against real URLs or the user's library in tests or CI.
+- Delete or overwrite the user's music files outside an explicit, confirmed feature.
+- Change the licence (PolyForm Noncommercial 1.0.0).
+- Expand the scope beyond the issue, or start work from a later milestone without the user's agreement.
+
+## Definition of done
+
+- The issue's acceptance criteria are met.
+- New behaviour is covered by tests; bugs come with a regression test.
+- `vp check`, `vp run typecheck`, `vp run test` and `vp run build` pass.
+- UI changes were checked in the browser, light and dark.
+- Docs are up to date.

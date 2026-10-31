@@ -1,0 +1,11 @@
+# Sections of the notes GitHub generates for each release, from PR labels
+changelog:
+  categories:
+    - title: Features
+      labels: [feature]
+    - title: Fixes
+      labels: [bug]
+    - title: Dependencies
+      labels: [dependencies]
+    - title: Maintenance
+      labels: ['*']
