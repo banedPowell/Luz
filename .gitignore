@@ -32,3 +32,6 @@ Thumbs.db
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Vite+ generated Git hook dispatcher (project hooks live in .vite-hooks/)
+.vite-hooks/_

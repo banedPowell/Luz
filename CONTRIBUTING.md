@@ -29,23 +29,23 @@ A significant architecture choice made along the way gets a new decision record 
 
 Only four labels exist, on purpose:
 
-| Label          | Meaning                                       | Set by                                     |
-| -------------- | --------------------------------------------- | ------------------------------------------ |
-| `feature`      | New capability or user-facing improvement     | Feature template, `feat:` / `perf:` PRs    |
-| `bug`          | Something behaves incorrectly                 | Bug template, `fix:` / `revert:` PRs       |
-| `chore`        | Tooling, refactoring, CI, docs, tests         | Task template, other PR types              |
-| `dependencies` | Dependency updates                            | Dependabot                                 |
+| Label          | Meaning                                   | Set by                                  |
+| -------------- | ----------------------------------------- | --------------------------------------- |
+| `feature`      | New capability or user-facing improvement | Feature template, `feat:` / `perf:` PRs |
+| `bug`          | Something behaves incorrectly             | Bug template, `fix:` / `revert:` PRs    |
+| `chore`        | Tooling, refactoring, CI, docs, tests     | Task template, other PR types           |
+| `dependencies` | Dependency updates                        | Dependabot                              |
 
 Priority and size are board fields, not labels.
 
 ## Titles and commits
 
-| Prefix                                                        | Version bump                    | PR label  |
-| ------------------------------------------------------------- | ------------------------------- | --------- |
-| `feat:`                                                       | minor                           | `feature` |
-| `fix:` / `perf:`                                              | patch                           | `bug` / `feature` |
-| `feat!:` or a `BREAKING CHANGE:` footer                       | major (minor before 1.0)        | as type   |
-| `refactor:` `style:` `test:` `docs:` `build:` `ci:` `chore:`  | none                            | `chore`   |
+| Prefix                                                       | Version bump             | PR label          |
+| ------------------------------------------------------------ | ------------------------ | ----------------- |
+| `feat:`                                                      | minor                    | `feature`         |
+| `fix:` / `perf:`                                             | patch                    | `bug` / `feature` |
+| `feat!:` or a `BREAKING CHANGE:` footer                      | major (minor before 1.0) | as type           |
+| `refactor:` `style:` `test:` `docs:` `build:` `ci:` `chore:` | none                     | `chore`           |
 
 The subject starts with a lowercase letter and says what the change brings: `feat(library): group tracks by album artist`. The scope is optional and names the area (`library`, `downloads`, `metadata`, `playlists`, `settings`, `core`, `db`, `ui`, `deps`).
 
@@ -67,26 +67,26 @@ Nothing reaches `main` except from `dev`, and nothing is committed to `main` or 
 
 ## Automations
 
-| Workflow                   | Trigger                         | Role                                                            |
-| -------------------------- | ------------------------------- | --------------------------------------------------------------- |
-| `ci.yml`                   | PR, push to `dev` and `main`    | Format, lint, types, tests, build (`Check`)                     |
-| `pr.yml`                   | PR                              | Title and branch conventions (`Conventions`), type label        |
-| `project.yml`              | Issue, PR and branch events     | Moves issues across the board                                   |
-| `release.yml`              | Push to `main`                  | Tag `vX.Y.Z` and GitHub release                                 |
-| `dependabot-automerge.yml` | Dependabot PR                   | Auto-merges minor and patch updates once checks pass            |
+| Workflow                   | Trigger                      | Role                                                     |
+| -------------------------- | ---------------------------- | -------------------------------------------------------- |
+| `ci.yml`                   | PR, push to `dev` and `main` | Format, lint, types, tests, build (`Check`)              |
+| `pr.yml`                   | PR                           | Title and branch conventions (`Conventions`), type label |
+| `project.yml`              | Issue, PR and branch events  | Moves issues across the board                            |
+| `release.yml`              | Push to `main`               | Tag `vX.Y.Z` and GitHub release                          |
+| `dependabot-automerge.yml` | Dependabot PR                | Auto-merges minor and patch updates once checks pass     |
 
 ### Board automation
 
-| Event                                       | Status                         |
-| ------------------------------------------- | ------------------------------ |
-| Issue opened or reopened                    | _Backlog_, or _Ready_ if it has a milestone |
-| Milestone added / removed                   | _Ready_ / back to _Backlog_    |
-| Branch `<type>/<issue>-…` created           | _In progress_                  |
-| Draft PR opened, or PR converted to draft   | _In progress_                  |
-| PR ready for review                         | _In review_                    |
-| PR closed without merging                   | back to _Ready_                |
-| PR merged                                   | _Done_ for the issues it closes, back to _In progress_ for issues linked by branch name only |
-| Issue closed                                | _Done_                         |
+| Event                                     | Status                                                                                       |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Issue opened or reopened                  | _Backlog_, or _Ready_ if it has a milestone                                                  |
+| Milestone added / removed                 | _Ready_ / back to _Backlog_                                                                  |
+| Branch `<type>/<issue>-…` created         | _In progress_                                                                                |
+| Draft PR opened, or PR converted to draft | _In progress_                                                                                |
+| PR ready for review                       | _In review_                                                                                  |
+| PR closed without merging                 | back to _Ready_                                                                              |
+| PR merged                                 | _Done_ for the issues it closes, back to _In progress_ for issues linked by branch name only |
+| Issue closed                              | _Done_                                                                                       |
 
 The workflow needs the `PROJECT_TOKEN` repository secret: a personal access token with the `project` and `repo` scopes. Without it, the job is skipped with a warning.
 

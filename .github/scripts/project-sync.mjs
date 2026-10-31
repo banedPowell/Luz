@@ -115,7 +115,8 @@ async function loadBoard(github, owner, number) {
 		{ owner, number },
 	);
 	const project = user?.projectV2;
-	if (!project?.field) throw new Error(`Project ${owner}/${number} or its Status field not found`);
+	if (!project?.field)
+		throw new Error(`Project ${owner}/${number} or its Status field not found`);
 
 	const options = Object.fromEntries(project.field.options.map((o) => [o.name, o.id]));
 	for (const name of Object.values(STATUS))

@@ -1,0 +1,20 @@
+{
+	"name": "@luz/web",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"postinstall": "nuxt prepare",
+		"dev": "nuxt dev",
+		"build": "nuxt build",
+		"preview": "nuxt preview",
+		"typecheck": "nuxt typecheck"
+	},
+	"dependencies": {
+		"nuxt": "^4.6.3",
+		"vue": "^3.5.44"
+	},
+	"devDependencies": {
+		"typescript": "^6.0.3",
+		"vue-tsc": "^3.3.14"
+	}
+}

@@ -8,7 +8,7 @@ Luz is a local-first music library manager: it downloads music with yt-dlp and F
 
 - **Today:** a web app for one person on their own computer (milestones v0.x → v1.0).
 - **Later:** device profiles, metadata providers, configurable sources, then a self-hosted Docker server with optional authentication and several users. A mobile app in the very long term.
-- **Status:** v0.1 Foundation. The monorepo is being scaffolded; update the [Commands](#commands) and [Layout](#layout) sections when that changes.
+- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` is a bare Nuxt app and `packages/core` is still empty. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
 
 Read before working:
 
@@ -30,7 +30,7 @@ The `prototype` branch holds a throwaway first version ([ADR 0004](docs/decision
 
 ## Layout
 
-Target layout (create packages only when needed):
+Target layout (create packages and folders only when needed):
 
 ```
 apps/web/                 Nuxt app: UI (app/) and API (server/)
@@ -39,21 +39,27 @@ apps/web/                 Nuxt app: UI (app/) and API (server/)
   server/services/        application services (use cases)
   server/infrastructure/  db, yt-dlp, ffmpeg, filesystem adapters
 packages/core/            pure TypeScript domain: types, Zod schemas, rules
+scripts/                  repository tooling run by Node (e.g. the commit-msg check)
 docs/                     roadmap and architecture decisions
+.vite-hooks/              Git hooks: pre-commit runs `vp staged`, commit-msg checks Conventional Commits
+vite.config.ts            shared Vite+ config: fmt (Oxfmt), lint (Oxlint), staged files, test projects
+pnpm-workspace.yaml       workspace packages and allowed dependency build scripts
 ```
+
+Lint and format settings live only in the root `vite.config.ts`; packages never add their own `fmt` or `lint` blocks.
 
 ## Commands
 
-All commands go through `vp`. Nuxt commands run as scripts through `vp run`, because `vp dev` and `vp build` run plain Vite, not Nuxt.
+All commands go through `vp`. Nuxt commands run as scripts through `vp run`, because `vp dev` and `vp build` run plain Vite, not Nuxt. `vp` picks Node from `.nvmrc` and pnpm from `packageManager`.
 
-| Command             | Purpose                                   |
-| ------------------- | ----------------------------------------- |
-| `vp install`        | Install dependencies (delegates to pnpm)  |
-| `vp run dev`        | Start the Nuxt dev server                 |
-| `vp check`          | Format check, lint and types              |
-| `vp run typecheck`  | Nuxt type check (`vue-tsc`)               |
-| `vp run test`       | All tests                                 |
-| `vp run build`      | Production build                          |
+| Command            | Purpose                                                                  |
+| ------------------ | ------------------------------------------------------------------------ |
+| `vp install`       | Install dependencies (delegates to pnpm) and the Git hooks (`vp config`) |
+| `vp run dev`       | Start the Nuxt dev server (`apps/web`)                                   |
+| `vp check`         | Format check, lint and types; `vp check --fix` formats and fixes         |
+| `vp run typecheck` | Type check every package (`nuxt typecheck`, i.e. `vue-tsc`, for the app) |
+| `vp run test`      | All tests (Vitest projects declared in `vite.config.ts`)                 |
+| `vp run build`     | Production build of every package                                        |
 
 Before declaring work done, run what CI runs: `vp check`, `vp run typecheck`, `vp run test`, `vp run build`.
 
