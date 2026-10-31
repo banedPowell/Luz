@@ -7,7 +7,9 @@
 //   draft PR opened             -> In progress
 //   PR ready for review         -> In review
 //   PR closed without merge     -> Ready        (from In progress, In review)
-//   PR merged / issue closed    -> Done
+//   PR merged                   -> Done for the issues it closes,
+//                                  In progress for those linked by branch only
+//   issue closed                -> Done
 //
 // PRs reach their issues through closing keywords ("Closes #12") and through
 // the branch name. An issue in Done only leaves it when it is reopened.
@@ -81,9 +83,12 @@ export default async function sync({ github, context, core, owner, number }) {
 
 		for (const issue of issues) {
 			if (action === 'closed') {
-				if (pr.merged) await move(issue.id, STATUS.done);
+				if (pr.merged && issue.closes) await move(issue.id, STATUS.done);
 				else if (issue.state === 'OPEN')
-					await move(issue.id, STATUS.ready, { from: [STATUS.progress, STATUS.review] });
+					// A merged PR that does not close its issue leaves work to do
+					await move(issue.id, pr.merged ? STATUS.progress : STATUS.ready, {
+						from: [STATUS.progress, STATUS.review],
+					});
 				continue;
 			}
 			if (issue.state !== 'OPEN') continue;
@@ -185,7 +190,10 @@ async function linkedIssues(github, context, pr) {
 		}`,
 		{ ...context.repo, number: pr.number },
 	);
-	const issues = repository.pullRequest.closingIssuesReferences.nodes;
+	const issues = repository.pullRequest.closingIssuesReferences.nodes.map((issue) => ({
+		...issue,
+		closes: true,
+	}));
 
 	const fromBranch = await issueFromBranch(github, context, pr.head.ref);
 	if (fromBranch && !issues.some((i) => i.number === fromBranch.number))
@@ -193,6 +201,7 @@ async function linkedIssues(github, context, pr) {
 			id: fromBranch.node_id,
 			number: fromBranch.number,
 			state: fromBranch.state.toUpperCase(),
+			closes: false,
 		});
 
 	return issues;

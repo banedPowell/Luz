@@ -85,7 +85,8 @@ Nothing reaches `main` except from `dev`, and nothing is committed to `main` or 
 | Draft PR opened, or PR converted to draft   | _In progress_                  |
 | PR ready for review                         | _In review_                    |
 | PR closed without merging                   | back to _Ready_                |
-| PR merged, or issue closed                  | _Done_                         |
+| PR merged                                   | _Done_ for the issues it closes, back to _In progress_ for issues linked by branch name only |
+| Issue closed                                | _Done_                         |
 
 The workflow needs the `PROJECT_TOKEN` repository secret: a personal access token with the `project` and `repo` scopes. Without it, the job is skipped with a warning.
 
