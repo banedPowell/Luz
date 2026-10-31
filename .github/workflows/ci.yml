@@ -1,7 +1,7 @@
 name: CI
 
 # The "Check" job is a required status check on dev and main.
-# The commands mirror the local checks described in CONTRIBUTING.md.
+# The commands mirror the local checks described in CLAUDE.md.
 on:
   pull_request:
   push:
@@ -14,6 +14,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The prepare script would install the Git hook dispatcher, useless on a runner
+  VP_GIT_HOOKS: 0
+
 jobs:
   check:
     name: Check
@@ -24,44 +28,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Bootstrap guard, removed once the monorepo is scaffolded (#1)
-      - name: Detect workspace
-        id: workspace
-        run: |
-          if [ -f package.json ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::No package.json yet, checks are skipped until the monorepo is scaffolded (#1)."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install pnpm
-        if: steps.workspace.outputs.ready == 'true'
-        uses: pnpm/action-setup@v6
-
-      - name: Install Node
-        if: steps.workspace.outputs.ready == 'true'
-        uses: actions/setup-node@v7
+      # Installs vp (version from the lockfile), Node from .nvmrc and pnpm
+      # from packageManager, then runs `vp install` with a frozen lockfile.
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
         with:
           node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install dependencies
-        if: steps.workspace.outputs.ready == 'true'
-        run: pnpm install --frozen-lockfile
+          cache: true
 
       - name: Format, lint, types
-        if: steps.workspace.outputs.ready == 'true'
-        run: pnpm exec vp check
+        run: vp check
 
       - name: Nuxt typecheck
-        if: steps.workspace.outputs.ready == 'true'
-        run: pnpm exec vp run typecheck
+        run: vp run typecheck
 
       - name: Tests
-        if: steps.workspace.outputs.ready == 'true'
-        run: pnpm exec vp run test
+        run: vp run test
 
       - name: Build
-        if: steps.workspace.outputs.ready == 'true'
-        run: pnpm exec vp run build
+        run: vp run build

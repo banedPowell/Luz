@@ -1,0 +1,23 @@
+{
+	"name": "luz",
+	"private": true,
+	"license": "PolyForm-Noncommercial-1.0.0",
+	"type": "module",
+	"scripts": {
+		"prepare": "vp config",
+		"dev": "vp run --filter ./apps/web dev",
+		"typecheck": "vp run -r typecheck",
+		"test": "vp test",
+		"build": "vp run -r build"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.0",
+		"typescript": "^6.0.3",
+		"vite-plus": "^1.4.0"
+	},
+	"engines": {
+		"node": "^24.15.0",
+		"pnpm": "^12.16.1"
+	},
+	"packageManager": "pnpm@12.16.1"
+}
