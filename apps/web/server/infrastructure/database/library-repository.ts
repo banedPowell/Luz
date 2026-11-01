@@ -491,20 +491,28 @@ export async function searchTracks(
 	return { items: rows.map(toTrackSummary), total: await db.$count(tracks, where) };
 }
 
+// The first albums are picked before their tracks are counted: counting every match,
+// then keeping ten, took over 100 ms for a one-letter query on 60,000 tracks
 export async function searchAlbums(
 	db: Database,
 	key: string,
 	limit: number,
 ): Promise<{ items: AlbumSummary[]; total: number }> {
 	const where = containing(albums.searchTitle, key);
-	const items = await selectAlbums(db, where)
-		.orderBy(
-			startingWith(albums.searchTitle, key),
-			by(albums.title, 'asc', true),
-			by(artists.name, 'asc', true),
-			asc(albums.id),
-		)
+	const order = [
+		startingWith(albums.searchTitle, key),
+		by(albums.title, 'asc', true),
+		by(artists.name, 'asc', true),
+		asc(albums.id),
+	];
+	const first = db
+		.select({ id: albums.id })
+		.from(albums)
+		.innerJoin(artists, eq(artists.id, albums.artistId))
+		.where(where)
+		.orderBy(...order)
 		.limit(limit);
+	const items = await selectAlbums(db, inArray(albums.id, first)).orderBy(...order);
 	return { items, total: await db.$count(albums, where) };
 }
 
@@ -514,12 +522,17 @@ export async function searchArtists(
 	limit: number,
 ): Promise<{ items: ArtistSummary[]; total: number }> {
 	const where = containing(artists.searchName, key);
-	const items = await selectArtists(db, where)
-		.orderBy(
-			startingWith(artists.searchName, key),
-			by(artists.name, 'asc', true),
-			asc(artists.id),
-		)
+	const order = [
+		startingWith(artists.searchName, key),
+		by(artists.name, 'asc', true),
+		asc(artists.id),
+	];
+	const first = db
+		.select({ id: artists.id })
+		.from(artists)
+		.where(where)
+		.orderBy(...order)
 		.limit(limit);
+	const items = await selectArtists(db, inArray(artists.id, first)).orderBy(...order);
 	return { items, total: await db.$count(artists, where) };
 }

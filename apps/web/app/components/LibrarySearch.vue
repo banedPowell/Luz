@@ -3,7 +3,7 @@ import { maxSearchQueryLength } from '@luz/core';
 
 const searchPath = '/library/search';
 // Long enough not to fetch on every key, short enough to feel immediate
-const searchDelayMs = 300;
+const searchDelayMs = 150;
 
 const route = useRoute();
 const router = useRouter();

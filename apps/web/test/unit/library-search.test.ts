@@ -113,6 +113,39 @@ describe('library search', () => {
 		expect(result.albums.total).toBe(1);
 	});
 
+	it('counts the tracks of the first albums and artists only once they are picked', async () => {
+		// Two tracks for odd numbers, one for even ones; "Best Mix" sorts after the
+		// names that start with the query, so it falls outside the first ten
+		const numbers = Array.from({ length: 11 }, (_, index) =>
+			String(index + 1).padStart(2, '0'),
+		);
+		for (const number of numbers) {
+			const tracks = Number(number) % 2 === 1 ? 2 : 1;
+			for (let disc = 1; disc <= tracks; disc += 1) {
+				await add(`${number}-${disc}.flac`, {
+					title: `Track ${number}`,
+					artists: [`Mix Band ${number}`],
+					album: `Mix ${number}`,
+				});
+			}
+		}
+		await add('best.flac', { title: 'Track', artists: ['Best Mix Band'], album: 'Best Mix' });
+
+		const result = await search('mix');
+		expect(result.albums.total).toBe(12);
+		expect(result.albums.items.map((album) => [album.title, album.trackCount])).toEqual(
+			numbers
+				.slice(0, 10)
+				.map((number) => [`Mix ${number}`, Number(number) % 2 === 1 ? 2 : 1]),
+		);
+		expect(result.artists.total).toBe(12);
+		expect(result.artists.items.map((artist) => [artist.name, artist.trackCount])).toEqual(
+			numbers
+				.slice(0, 10)
+				.map((number) => [`Mix Band ${number}`, Number(number) % 2 === 1 ? 2 : 1]),
+		);
+	});
+
 	it('takes wildcards literally', async () => {
 		await add('1.flac', { title: '100% Pure', artists: ['A_B'] });
 		await add('2.flac', { title: '1000 Pure', artists: ['AxB'] });
