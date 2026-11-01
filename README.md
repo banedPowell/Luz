@@ -25,6 +25,19 @@ vp install     # dépendances et hooks Git
 vp run dev     # serveur de développement sur http://localhost:3000
 ```
 
+### Configuration
+
+Luz se configure par des variables d'environnement `NUXT_*`, toutes décrites avec leur valeur par défaut dans [`apps/web/.env.example`](apps/web/.env.example) :
+
+| Variable            | Rôle                                               | Défaut                                                                                                                 |
+| ------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `NUXT_DATA_DIR`     | Dossier des données de Luz (base, cookies, caches) | Windows `%APPDATA%\Luz`, macOS `~/Library/Application Support/Luz`, Linux `$XDG_DATA_HOME/luz` ou `~/.local/share/luz` |
+| `NUXT_YT_DLP_PATH`  | Commande ou chemin de yt-dlp                       | `yt-dlp`                                                                                                               |
+| `NUXT_FFMPEG_PATH`  | Commande ou chemin de FFmpeg                       | `ffmpeg`                                                                                                               |
+| `NUXT_FFPROBE_PATH` | Commande ou chemin de ffprobe                      | `ffprobe`                                                                                                              |
+
+Le dossier de données est créé au premier démarrage. En développement, copie `apps/web/.env.example` en `apps/web/.env` : il règle `NUXT_DATA_DIR=.luz`, ce qui garde tes données de dev à part de tes vraies données. Les journaux du serveur vont sur la sortie standard.
+
 Avant de proposer une modification, lance ce que lance la CI :
 
 ```sh

@@ -8,7 +8,7 @@ Luz is a local-first music library manager: it downloads music with yt-dlp and F
 
 - **Today:** a web app for one person on their own computer (milestones v0.x → v1.0).
 - **Later:** device profiles, metadata providers, configurable sources, then a self-hosted Docker server with optional authentication and several users. A mobile app in the very long term.
-- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` holds the settings schema (Zod), consumed from its TypeScript sources (no build step). Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
+- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` holds the settings and server config schemas (Zod), consumed from its TypeScript sources (no build step). The server reads its configuration from `NUXT_*` variables and creates the data directory at startup. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
 
 Read before working:
 
@@ -37,10 +37,14 @@ apps/web/                 Nuxt app: UI (app/) and API (server/)
   app/                    pages, layouts, components, composables, stores, utils
   app/app.config.ts       Nuxt UI theme: neutral colour, pixelarticons icons, subtle inputs
   test/nuxt/              component tests in the Nuxt environment (@nuxt/test-utils)
+  test/unit/              plain Node tests for server code (root `web-unit` test project)
   vitest.config.ts        the web test project, listed in the root test.projects
+  .env.example            every NUXT_* variable with its default
   server/api/             thin route handlers
+  server/plugins/         Nitro startup plugins (e.g. creating the data directory)
   server/services/        application services (use cases)
-  server/infrastructure/  db, yt-dlp, ffmpeg, filesystem adapters
+  server/infrastructure/  config, data directory, db, yt-dlp, ffmpeg, filesystem adapters
+  server/utils/           auto-imported helpers: useLuzConfig(), logger (consola, stdout)
 packages/core/            pure TypeScript domain: types, Zod schemas, rules
 scripts/                  repository tooling run by Node (e.g. the commit-msg check)
 docs/                     roadmap and architecture decisions
@@ -72,7 +76,7 @@ Before declaring work done, run what CI runs: `vp check`, `vp run typecheck`, `v
 - Route handlers in `server/api/` stay thin: validate input with Zod, call a service, return the result. No business logic in handlers.
 - Server code never imports from `app/`; client code never imports from `server/`. Shared types come from `packages/core`.
 - yt-dlp, FFmpeg and the file system are reached only through adapters in `server/infrastructure/`. Tests use fakes; they never call the real binaries or the network.
-- Configuration comes from environment variables via `runtimeConfig`, documented in `.env.example`. No hard-coded paths ([ADR 0003](docs/decisions/0003-twelve-factor-config.md)).
+- Configuration comes from environment variables via `runtimeConfig`, documented in `apps/web/.env.example`. Server code reads it through `useLuzConfig()`, which validates it and resolves the data directory. No hard-coded paths ([ADR 0003](docs/decisions/0003-twelve-factor-config.md)).
 - The audio files are the source of truth for tags; the database is an index a rescan can rebuild.
 - Every schema change ships with a generated migration in the same PR. Use real columns for anything queried; JSON columns only for opaque payloads.
 - Operations that modify or delete the user's files are explicit, confirmed in the UI and covered by tests.
