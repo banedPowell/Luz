@@ -1,8 +1,13 @@
 <script setup lang="ts">
+const props = defineProps<{
+	// Set by error.vue: an unknown or failing route has no navigation entry to name it
+	title?: string;
+}>();
+
 const route = useRoute();
 const open = ref(true);
 
-const title = computed(() => findNavigationEntry(route.path)?.label ?? 'Luz');
+const title = computed(() => props.title ?? findNavigationEntry(route.path)?.label ?? 'Luz');
 
 useHead({ titleTemplate: (page) => (page ? `${page} · Luz` : 'Luz') });
 useSeoMeta({ title });
