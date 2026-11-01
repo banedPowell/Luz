@@ -32,6 +32,7 @@ describe('loadMigrations', () => {
 		expect(migrations.map((migration) => migration.tag)).toEqual([
 			'0000_create_settings',
 			'0001_create_library',
+			'0002_add_search_keys',
 		]);
 		expect(migrations[0]?.statements[0]).toMatch(/^CREATE TABLE `settings`/);
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
@@ -110,6 +111,7 @@ describe('database', () => {
 		expect((await migrate()).map((migration) => migration.tag)).toEqual([
 			'0000_create_settings',
 			'0001_create_library',
+			'0002_add_search_keys',
 		]);
 		expect(await migrate()).toEqual([]);
 	});

@@ -2,7 +2,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { AlbumSummary, LibraryPage, TrackSummary } from '@luz/core';
+import type { AlbumSummary, LibraryPage, LibrarySearchResult, TrackSummary } from '@luz/core';
 import { $fetch, createPage, fetch, setup } from '@nuxt/test-utils/e2e';
 import { afterAll, describe, expect, it } from 'vitest';
 import { sharedBuild } from './build';
@@ -88,5 +88,35 @@ describe('library browsing', async () => {
 
 		expect((await fetch('/api/library/albums?sort=duration')).status).toBe(400);
 		expect((await fetch('/api/library/artists/999')).status).toBe(404);
+	});
+
+	it('searches from the field of the library, keeping the query in the URL', async () => {
+		const page = await createPage('/library/albums');
+
+		const field = page.getByRole('searchbox', { name: 'Search the library' });
+		await page.getByText('1 album', { exact: true }).waitFor();
+		await field.focus();
+		await page.keyboard.type('fîxture TONE');
+		await page.waitForURL('**/library/search?q=f%C3%AExture+TONE');
+		await page.getByText('5 tracks', { exact: true }).waitFor();
+		await page.reload();
+		await page.getByRole('heading', { level: 2, name: 'Tracks' }).waitFor();
+		expect(await field.inputValue()).toBe('fîxture TONE');
+
+		await field.fill('nothing like this');
+		await page.getByText('No results for “nothing like this”').waitFor();
+
+		await page.close();
+	});
+
+	it('matches partial names in the API, and rejects a query too long', async () => {
+		const result = await $fetch<LibrarySearchResult>('/api/library/search', {
+			query: { q: ' TEST BÄND ' },
+		});
+		expect(result.query).toBe('TEST BÄND');
+		expect(result.artists.items).toMatchObject([{ name: 'Luz Test Band', trackCount: 5 }]);
+		expect(result.albums.total).toBe(0);
+
+		expect((await fetch(`/api/library/search?q=${'a'.repeat(101)}`)).status).toBe(400);
 	});
 });
