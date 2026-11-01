@@ -8,7 +8,7 @@ Luz is a local-first music library manager: it downloads music with yt-dlp and F
 
 - **Today:** a web app for one person on their own computer (milestones v0.x → v1.0).
 - **Later:** device profiles, metadata providers, configurable sources, then a self-hosted Docker server with optional authentication and several users. A mobile app in the very long term.
-- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` is still empty. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
+- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` holds the settings schema (Zod), consumed from its TypeScript sources (no build step). Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
 
 Read before working:
 

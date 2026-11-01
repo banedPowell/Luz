@@ -1,7 +1,6 @@
 <script setup lang="ts">
+import type { Theme } from '@luz/core';
 import type { DropdownMenuItem } from '@nuxt/ui';
-
-type ThemePreference = 'system' | 'light' | 'dark';
 
 const { collapsed = false } = defineProps<{
 	collapsed?: boolean;
@@ -16,7 +15,7 @@ const options = computed(
 			{ value: 'system', label: 'System', icon: appConfig.ui.icons.system },
 			{ value: 'light', label: 'Light', icon: appConfig.ui.icons.light },
 			{ value: 'dark', label: 'Dark', icon: appConfig.ui.icons.dark },
-		] satisfies { value: ThemePreference; label: string; icon: string }[],
+		] satisfies { value: Theme; label: string; icon: string }[],
 );
 
 const current = computed(
