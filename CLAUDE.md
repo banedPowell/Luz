@@ -15,6 +15,7 @@ Read before working:
 - [docs/ROADMAP.md](docs/ROADMAP.md): milestones, scope and what is explicitly out of scope.
 - [docs/decisions/](docs/decisions/): architecture decisions. Do not contradict one without proposing a new record.
 - [CONTRIBUTING.md](CONTRIBUTING.md): issues, branches, PRs, releases, board.
+- [docs/agents/pitfalls.md](docs/agents/pitfalls.md): traps already met, by topic. Read only the sections your task touches, and add one when you lose time on something the next agent would hit too.
 
 The `prototype` branch holds a throwaway first version ([ADR 0004](docs/decisions/0004-prototype-as-reference.md)). Read it for ideas; never merge it, never copy code from it without rewriting it to current standards and testing it.
 
@@ -51,7 +52,7 @@ apps/web/                 Nuxt app: UI (app/) and API (server/)
   server/utils/           auto-imported helpers: useLuzConfig(), useDatabase(), logger (consola, stdout)
 packages/core/            pure TypeScript domain: types, Zod schemas, rules
 scripts/                  repository tooling run by Node (e.g. the commit-msg check)
-docs/                     roadmap and architecture decisions
+docs/                     roadmap, architecture decisions and agent pitfalls (agents/pitfalls.md)
 .vite-hooks/              Git hooks: pre-commit runs `vp staged`, commit-msg checks Conventional Commits
 vite.config.ts            shared Vite+ config: fmt (Oxfmt), lint (Oxlint), staged files, test projects
 pnpm-workspace.yaml       workspace packages, allowed build scripts, the vite/vitest catalog and overrides
