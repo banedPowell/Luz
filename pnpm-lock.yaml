@@ -194,9 +194,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@luz/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@nuxt/ui':
         specifier: ^4.12.0
-        version: 4.12.0(70121cb661d3be9d6c91dbc76e0ad4ef)
+        version: 4.12.0(ac2aade75b89e7b865d282b3a9857336)
       nuxt:
         specifier: ^4.6.3
         version: 4.6.3(779afdc35c0e1fb5e52befa1c5cb39f4)
@@ -229,7 +232,15 @@ importers:
         specifier: ^3.3.14
         version: 3.3.14(typescript@6.0.3)
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
 packages:
 
@@ -5031,6 +5042,9 @@ packages:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
 
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
+
 snapshots:
 
   '@alloc/quick-lru@5.3.0': {}
@@ -6049,7 +6063,7 @@ snapshots:
       - webpack
       - yaml
 
-  '@nuxt/ui@4.12.0(70121cb661d3be9d6c91dbc76e0ad4ef)':
+  '@nuxt/ui@4.12.0(ac2aade75b89e7b865d282b3a9857336)':
     dependencies:
       '@floating-ui/dom': 1.8.0
       '@iconify/vue': 5.0.4(vue@3.5.44(typescript@6.0.3))
@@ -6117,6 +6131,8 @@ snapshots:
       unplugin-vue-components: 32.1.0(@nuxt/kit@4.6.3(@nuxt/schema@4.6.3)(confbox@0.3.2)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.5)(mlly@1.8.2)(rolldown@1.2.16)(unplugin@3.7.0(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@6.0.3))(@vue/language-core@3.3.14)(esbuild@0.27.7)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.2)(terser@5.51.2)(typescript@6.0.3)(vue-tsc@3.3.14(typescript@6.0.3))))(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@6.0.3))(@vue/language-core@3.3.14)(esbuild@0.27.7)(jiti@2.7.0)(rolldown@1.2.16)(rollup@4.67.2)(terser@5.51.2)(typescript@6.0.3)(vue-tsc@3.3.14(typescript@6.0.3))(vue@3.5.44(typescript@6.0.3))
       vaul-vue: 0.4.1(reka-ui@2.11.0(vue@3.5.44(typescript@6.0.3)))(vue@3.5.44(typescript@6.0.3))
       vue-component-type-helpers: 3.3.14
+    optionalDependencies:
+      zod: 4.6.7
     transitivePeerDependencies:
       - '@arethetypeswrong/core'
       - '@azure/app-configuration'
@@ -10942,3 +10958,5 @@ snapshots:
       archiver-utils: 5.0.2
       compress-commons: 6.0.2
       readable-stream: 4.8.0
+
+  zod@4.6.7: {}
