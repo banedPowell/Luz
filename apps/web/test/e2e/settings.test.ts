@@ -1,10 +1,10 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { Settings } from '@luz/core';
 import { $fetch, fetch, setup, startServer, stopServer } from '@nuxt/test-utils/e2e';
 import { afterAll, describe, expect, it } from 'vitest';
+import { sharedBuild } from './build';
 
 // A fresh data directory: the built server creates its database there, never in the user's
 const dataDir = mkdtempSync(path.join(tmpdir(), 'luz-e2e-'));
@@ -17,7 +17,7 @@ afterAll(() => {
 
 describe('settings API', async () => {
 	await setup({
-		rootDir: fileURLToPath(new URL('../..', import.meta.url)),
+		...sharedBuild,
 		env,
 	});
 

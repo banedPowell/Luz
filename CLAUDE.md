@@ -40,7 +40,7 @@ apps/web/                 Nuxt app: UI (app/) and API (server/)
   test/nuxt/              component tests in the Nuxt environment (@nuxt/test-utils)
   app/plugins/            Nuxt plugins (e.g. loading the settings during server rendering)
   test/unit/              plain Node tests for server code (root `web-unit` test project)
-  test/e2e/               builds the app and runs it on a temporary data directory (root `web-e2e` project), in Chromium for the shell
+  test/e2e/               builds the app once (global setup), then each file runs its own server on a temporary data directory (root `web-e2e` project), in Chromium for the shell
   vitest.config.ts        the web test project, listed in the root test.projects
   drizzle.config.ts       drizzle-kit config: schema, migrations folder, database in the data directory
   .env.example            every NUXT_* variable with its default

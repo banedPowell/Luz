@@ -1,9 +1,9 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createPage, setup } from '@nuxt/test-utils/e2e';
 import { afterAll, describe, expect, it } from 'vitest';
+import { sharedBuild } from './build';
 
 // The theme switch saves through the API: keep its database away from the user's
 const dataDir = mkdtempSync(path.join(tmpdir(), 'luz-e2e-'));
@@ -16,7 +16,7 @@ const links = ['Home', 'Library', 'Downloads', 'Settings'];
 
 describe('app shell in a browser', async () => {
 	await setup({
-		rootDir: fileURLToPath(new URL('../..', import.meta.url)),
+		...sharedBuild,
 		env: { NUXT_DATA_DIR: dataDir },
 		browser: true,
 	});
