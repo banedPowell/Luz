@@ -8,7 +8,7 @@ Luz is a local-first music library manager: it downloads music with yt-dlp and F
 
 - **Today:** a web app for one person on their own computer (milestones v0.x → v1.0).
 - **Later:** device profiles, metadata providers, configurable sources, then a self-hosted Docker server with optional authentication and several users. A mobile app in the very long term.
-- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` holds the settings and server config schemas (Zod), consumed from its TypeScript sources (no build step). The server reads its configuration from `NUXT_*` variables, creates the data directory at startup and opens the SQLite database there (`luz.db`), applying pending migrations and writing the default settings before it serves any request. The settings (theme, music library path) are read and edited through `GET`/`PATCH /api/settings` and the Settings page; the server sets the colour-mode cookie from the stored theme, so the page renders in the right theme without a flash. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
+- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` holds the settings and server config schemas (Zod), consumed from its TypeScript sources (no build step). The server reads its configuration from `NUXT_*` variables, creates the data directory at startup and opens the SQLite database there (`luz.db`), applying pending migrations and writing the default settings before it serves any request. The settings (theme, music library path) are read and edited through `GET`/`PATCH /api/settings` and the Settings page; the server sets the colour-mode cookie from the stored theme, so the page renders in the right theme without a flash. A browser end-to-end test (Playwright's headless Chromium through `@nuxt/test-utils/e2e`) checks the shell's sidebar, narrow-screen menu and theme switch. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
 
 Read before working:
 
@@ -39,7 +39,7 @@ apps/web/                 Nuxt app: UI (app/) and API (server/)
   test/nuxt/              component tests in the Nuxt environment (@nuxt/test-utils)
   app/plugins/            Nuxt plugins (e.g. loading the settings during server rendering)
   test/unit/              plain Node tests for server code (root `web-unit` test project)
-  test/e2e/               builds the app and runs it on a temporary data directory (root `web-e2e` project)
+  test/e2e/               builds the app and runs it on a temporary data directory (root `web-e2e` project), in Chromium for the shell
   vitest.config.ts        the web test project, listed in the root test.projects
   drizzle.config.ts       drizzle-kit config: schema, migrations folder, database in the data directory
   .env.example            every NUXT_* variable with its default
@@ -63,16 +63,17 @@ Lint and format settings live only in the root `vite.config.ts`; packages never 
 
 All commands go through `vp`. Nuxt commands run as scripts through `vp run`, because `vp dev` and `vp build` run plain Vite, not Nuxt. `vp` picks Node from `.nvmrc` and pnpm from `packageManager`.
 
-| Command                            | Purpose                                                                         |
-| ---------------------------------- | ------------------------------------------------------------------------------- |
-| `vp install`                       | Install dependencies (delegates to pnpm) and the Git hooks (`vp config`)        |
-| `vp run dev`                       | Start the Nuxt dev server (`apps/web`)                                          |
-| `vp check`                         | Format check, lint and types; `vp check --fix` formats and fixes                |
-| `vp run typecheck`                 | Type check every package (`nuxt typecheck`, i.e. `vue-tsc`, for the app)        |
-| `vp run test`                      | All tests (Vitest projects declared in `vite.config.ts`)                        |
-| `vp run build`                     | Production build of every package                                               |
-| `vp run db:generate --name <name>` | Generate a migration from the Drizzle schema (commit it with the schema change) |
-| `vp run db:studio`                 | Open Drizzle Studio on the database of the configured data directory            |
+| Command                                                 | Purpose                                                                         |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `vp install`                                            | Install dependencies (delegates to pnpm) and the Git hooks (`vp config`)        |
+| `vp run dev`                                            | Start the Nuxt dev server (`apps/web`)                                          |
+| `vp check`                                              | Format check, lint and types; `vp check --fix` formats and fixes                |
+| `vp run typecheck`                                      | Type check every package (`nuxt typecheck`, i.e. `vue-tsc`, for the app)        |
+| `vp run test`                                           | All tests (Vitest projects declared in `vite.config.ts`)                        |
+| `vp exec playwright-core install --only-shell chromium` | Install the browser of the e2e tests, once, from `apps/web`                     |
+| `vp run build`                                          | Production build of every package                                               |
+| `vp run db:generate --name <name>`                      | Generate a migration from the Drizzle schema (commit it with the schema change) |
+| `vp run db:studio`                                      | Open Drizzle Studio on the database of the configured data directory            |
 
 Before declaring work done, run what CI runs: `vp check`, `vp run typecheck`, `vp run test`, `vp run build`.
 

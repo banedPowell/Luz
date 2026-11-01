@@ -42,6 +42,13 @@ jobs:
       - name: Nuxt typecheck
         run: vp run typecheck
 
+      # The browser test of the app shell drives Chromium through playwright-core.
+      # Only the headless shell is needed. Not cached: Playwright documents a cache
+      # restore as no faster than the download, and the system packages cannot be cached.
+      - name: Install Chromium for the browser tests
+        working-directory: apps/web
+        run: vp exec playwright-core install --with-deps --only-shell chromium
+
       - name: Tests
         run: vp run test
 
