@@ -8,7 +8,7 @@ Luz is a local-first music library manager: it downloads music with yt-dlp and F
 
 - **Today:** a web app for one person on their own computer (milestones v0.x → v1.0).
 - **Later:** device profiles, metadata providers, configurable sources, then a self-hosted Docker server with optional authentication and several users. A mobile app in the very long term.
-- **Status:** v0.2 Library in progress. `packages/core` defines the track tags and the rules that group tracks into albums and artists (album artist, else first track artist; untagged values go to an "unknown" entry); the database has `artists`, `albums` and `tracks` tables, written through the library repository, which drops empty albums and artists. Nothing scans or reads files yet. From v0.1 Foundation: the monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` holds the settings and server config schemas (Zod), consumed from its TypeScript sources (no build step). The server reads its configuration from `NUXT_*` variables, creates the data directory at startup and opens the SQLite database there (`luz.db`), applying pending migrations and writing the default settings before it serves any request. The settings (theme, music library path) are read and edited through `GET`/`PATCH /api/settings` and the Settings page; the server sets the colour-mode cookie from the stored theme, so the page renders in the right theme without a flash. A browser end-to-end test (Playwright's headless Chromium through `@nuxt/test-utils/e2e`) checks the shell's sidebar, narrow-screen menu and theme switch. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
+- **Status:** v0.2 Library in progress. `packages/core` defines the track tags and the rules that group tracks into albums and artists (album artist, else first track artist; untagged values go to an "unknown" entry); the database has `artists`, `albums` and `tracks` tables, written through the library repository, which drops empty albums and artists. A tag reader adapter reads the tags of an audio file with `music-metadata` ([ADR 0005](docs/decisions/0005-tag-reading-with-music-metadata.md)), read-only, behind the `TagReader` interface; nothing scans the music folder yet. From v0.1 Foundation: the monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` holds the settings and server config schemas (Zod), consumed from its TypeScript sources (no build step). The server reads its configuration from `NUXT_*` variables, creates the data directory at startup and opens the SQLite database there (`luz.db`), applying pending migrations and writing the default settings before it serves any request. The settings (theme, music library path) are read and edited through `GET`/`PATCH /api/settings` and the Settings page; the server sets the colour-mode cookie from the stored theme, so the page renders in the right theme without a flash. A browser end-to-end test (Playwright's headless Chromium through `@nuxt/test-utils/e2e`) checks the shell's sidebar, narrow-screen menu and theme switch. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
 
 Read before working:
 
@@ -40,6 +40,7 @@ apps/web/                 Nuxt app: UI (app/) and API (server/)
   test/nuxt/              component tests in the Nuxt environment (@nuxt/test-utils)
   app/plugins/            Nuxt plugins (e.g. loading the settings during server rendering)
   test/unit/              plain Node tests for server code (root `web-unit` test project)
+  test/fixtures/audio/    tagged audio fixtures of a few KB, one per supported format (README has the FFmpeg commands)
   test/e2e/               builds the app once (global setup), then each file runs its own server on a temporary data directory (root `web-e2e` project), in Chromium for the shell
   vitest.config.ts        the web test project, listed in the root test.projects
   drizzle.config.ts       drizzle-kit config: schema, migrations folder, database in the data directory
@@ -47,7 +48,7 @@ apps/web/                 Nuxt app: UI (app/) and API (server/)
   server/api/             thin route handlers
   server/plugins/         Nitro startup plugins (e.g. creating the data directory)
   server/services/        application services (use cases)
-  server/infrastructure/  config, data directory, db, yt-dlp, ffmpeg, filesystem adapters
+  server/infrastructure/  config, data directory, db, tag reader, yt-dlp, ffmpeg, filesystem adapters
     database/             Drizzle schema, libSQL client, migration runner, drizzle-kit migrations
   server/utils/           auto-imported helpers: useLuzConfig(), useDatabase(), logger (consola, stdout)
 packages/core/            pure TypeScript domain: types, Zod schemas, rules
