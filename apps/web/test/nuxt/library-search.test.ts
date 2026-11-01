@@ -144,6 +144,32 @@ describe('library search', () => {
 		expect(searchField(wrapper).element).toHaveProperty('value', '  deja vu ');
 	});
 
+	it('goes back to the view the search started from when the field is cleared', async () => {
+		const wrapper = await mountAt('/library/albums?sort=year');
+		const router = useRouter();
+
+		await searchField(wrapper).setValue('day');
+		await vi.waitFor(() => {
+			expect(router.currentRoute.value.fullPath).toBe('/library/search?q=day');
+		});
+		await searchField(wrapper).setValue('');
+		await vi.waitFor(() => {
+			expect(router.currentRoute.value.fullPath).toBe('/library/albums?sort=year');
+		});
+	});
+
+	it('goes to the tracks when a search opened from its URL is cleared', async () => {
+		const wrapper = await mountAt('/library/search?q=day');
+		const router = useRouter();
+
+		await searchField(wrapper).setValue(' ');
+		await wrapper.find('form[role="search"]').trigger('submit');
+		await vi.waitFor(() => {
+			expect(router.currentRoute.value.fullPath).toBe('/library');
+		});
+		expect(wrapper.text()).not.toContain('Search your library');
+	});
+
 	it('searches at once on Enter, and clears the field when another view opens', async () => {
 		const wrapper = await mountAt('/library/search?q=old');
 		const router = useRouter();

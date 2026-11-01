@@ -6,6 +6,7 @@ const searchPath = '/library/search';
 const searchDelayMs = 300;
 
 const route = useRoute();
+const router = useRouter();
 const appConfig = useAppConfig();
 
 const onSearchPage = computed(() => route.path === searchPath);
@@ -16,6 +17,8 @@ const routeQuery = computed(() =>
 const text = ref(routeQuery.value);
 
 let timer: ReturnType<typeof setTimeout> | undefined;
+// The view the search was started from, where clearing the field goes back to
+let origin = '/library';
 
 function cancel() {
 	clearTimeout(timer);
@@ -29,10 +32,19 @@ function search() {
 	if (onSearchPage.value ? q === routeQuery.value : q === '') {
 		return;
 	}
-	return navigateTo(
-		{ path: searchPath, query: q === '' ? {} : { q } },
-		{ replace: onSearchPage.value },
-	);
+	if (!onSearchPage.value) {
+		origin = route.fullPath;
+		return navigateTo({ path: searchPath, query: { q } });
+	}
+	if (q === '') {
+		// Back rather than forward when the search has its own history entry, so the
+		// back button does not land on the same view twice
+		if (router.options.history.state.back === origin) {
+			return router.back();
+		}
+		return navigateTo(origin, { replace: true });
+	}
+	return navigateTo({ path: searchPath, query: { q } }, { replace: true });
 }
 
 watch(text, () => {
