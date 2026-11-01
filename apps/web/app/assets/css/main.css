@@ -1,0 +1,33 @@
+/* Theme exported from the Nuxt UI theme builder (see app.config.ts for the other half) */
+@import 'tailwindcss';
+@import '@nuxt/ui';
+
+/* @nuxt/fonts resolves and self-hosts these families at build time */
+@theme {
+	--font-sans: 'Geist', sans-serif;
+	--font-mono: 'Geist Mono', monospace;
+}
+
+:root {
+	--ui-radius: 0.5rem;
+	--ui-primary: black;
+}
+
+:root,
+.light {
+	--ui-bg-muted: var(--ui-color-neutral-100);
+	--ui-bg-elevated: var(--ui-color-neutral-100);
+	--ui-bg-accented: var(--ui-color-neutral-200);
+	--ui-text: var(--ui-color-neutral-900);
+	--ui-text-highlighted: var(--ui-color-neutral-950);
+}
+
+.dark {
+	--ui-bg: var(--ui-color-neutral-950);
+	--ui-bg-muted: var(--ui-color-neutral-900);
+	--ui-bg-elevated: var(--ui-color-neutral-900);
+	--ui-bg-accented: var(--ui-color-neutral-800);
+	--ui-text: var(--ui-color-neutral-100);
+	--ui-text-highlighted: var(--ui-color-neutral-50);
+	--ui-primary: white;
+}

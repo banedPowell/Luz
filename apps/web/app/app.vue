@@ -1,5 +1,7 @@
 <template>
-	<main>
-		<h1>Luz</h1>
-	</main>
+	<UApp>
+		<NuxtLayout>
+			<NuxtPage />
+		</NuxtLayout>
+	</UApp>
 </template>

@@ -35,3 +35,4 @@ Thumbs.db
 
 # Vite+ generated Git hook dispatcher (project hooks live in .vite-hooks/)
 .vite-hooks/_
+.vitest/

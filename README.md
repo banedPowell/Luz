@@ -1,25 +1,43 @@
 # Luz
 
-Luz is a local-first music library manager. It downloads music from online sources, tags it properly and keeps it organised as plain audio files on your own disk.
+Luz est un gestionnaire de bibliothèque musicale local d'abord. Il télécharge de la musique depuis des sources en ligne, la tague correctement et la range sous forme de simples fichiers audio sur ton propre disque.
 
-> **Status:** early development. Nothing is usable yet. See the [roadmap](docs/ROADMAP.md).
+> **État :** développement précoce. L'application n'a encore qu'une coquille (barre latérale, thèmes, pages vides) ; aucune fonctionnalité musicale n'est utilisable. Voir la [feuille de route](docs/ROADMAP.md).
 
-## Why
+## Pourquoi
 
-Music you own should live in files you control, with clean metadata, sensible folder names and playlists that follow you from one device to another. Luz aims to make that effortless:
+La musique que tu possèdes devrait vivre dans des fichiers que tu contrôles, avec des métadonnées propres, des noms de dossiers cohérents et des playlists qui te suivent d'un appareil à l'autre. Luz veut rendre cela simple :
 
-- **Download** tracks, albums and playlists from configurable sources, powered by [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [FFmpeg](https://ffmpeg.org/).
-- **Organise** a library of tracks, albums and artists, built from the files themselves.
-- **Tag** files with accurate metadata and artwork, fetched from the most relevant provider, with a manual fallback when automation gets it wrong.
-- **Curate** playlists and export them.
-- **Take it with you** through device profiles (phone, portable player, computer) that each define their own format, quality and naming.
+- **Télécharger** des titres, albums et playlists depuis des sources configurables, grâce à [yt-dlp](https://github.com/yt-dlp/yt-dlp) et [FFmpeg](https://ffmpeg.org/).
+- **Organiser** une bibliothèque de titres, d'albums et d'artistes, construite à partir des fichiers eux-mêmes.
+- **Taguer** les fichiers avec des métadonnées et des pochettes exactes, récupérées auprès du fournisseur le plus pertinent, avec une correction manuelle quand l'automatisation se trompe.
+- **Composer** des playlists et les exporter.
+- **Emporter sa musique** grâce à des profils d'appareil (téléphone, baladeur, ordinateur) qui définissent chacun leur format, leur qualité et leur nommage.
 
-Luz starts as a web app running on your own computer. Self-hosting with Docker, optional authentication and multiple users come later.
+Luz commence comme une application web qui tourne sur ton propre ordinateur. L'auto-hébergement avec Docker, l'authentification optionnelle et le multi-utilisateur viendront plus tard.
 
-## Contributing
+## Démarrer
 
-The workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
+Prérequis : Node (version dans [`.nvmrc`](.nvmrc)) et Vite+ (`vp`), qui choisit lui-même la bonne version de Node et de pnpm.
+
+```sh
+vp install     # dépendances et hooks Git
+vp run dev     # serveur de développement sur http://localhost:3000
+```
+
+Avant de proposer une modification, lance ce que lance la CI :
+
+```sh
+vp check           # formatage, lint et types
+vp run typecheck   # vérification des types de chaque paquet
+vp run test        # tous les tests
+vp run build       # build de production
+```
+
+## Contribuer
+
+Le fonctionnement est décrit dans [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 
-[PolyForm Noncommercial 1.0.0](LICENSE.md): free to use, modify and share for any noncommercial purpose. Commercial use requires prior agreement.
+[PolyForm Noncommercial 1.0.0](LICENSE.md) : libre d'utilisation, de modification et de partage pour tout usage non commercial. Un usage commercial nécessite un accord préalable.
