@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -15,37 +15,7 @@ import {
 	type MigrationReader,
 } from '../../server/infrastructure/database/migrations';
 import { settings } from '../../server/infrastructure/database/schema';
-
-const migrationsFolder = path.join(
-	import.meta.dirname,
-	'../../server/infrastructure/database/migrations',
-);
-
-// The committed migrations, read from disk instead of Nitro's server assets
-const readMigrationsFolder: MigrationReader = async (file) => {
-	const filePath = path.join(migrationsFolder, file);
-	return existsSync(filePath) ? readFileSync(filePath, 'utf8') : undefined;
-};
-
-/**
- * Deletes a folder holding a closed database. close() leaves native statements to the
- * garbage collector, and Windows keeps the file locked until their finalizers run
- * (--expose-gc in vite.config.ts), which can take a few collections.
- */
-async function removeWhenReleased(folder: string): Promise<void> {
-	for (let attempt = 1; ; attempt++) {
-		globalThis.gc?.();
-		await new Promise((resolve) => setTimeout(resolve, 10));
-		try {
-			rmSync(folder, { recursive: true, force: true });
-			return;
-		} catch (error) {
-			if (attempt === 20) {
-				throw error;
-			}
-		}
-	}
-}
+import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
 function readerOf(files: Record<string, string>): MigrationReader {
 	return async (file) => files[file];

@@ -8,7 +8,7 @@ Luz is a local-first music library manager: it downloads music with yt-dlp and F
 
 - **Today:** a web app for one person on their own computer (milestones v0.x → v1.0).
 - **Later:** device profiles, metadata providers, configurable sources, then a self-hosted Docker server with optional authentication and several users. A mobile app in the very long term.
-- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` holds the settings and server config schemas (Zod), consumed from its TypeScript sources (no build step). The server reads its configuration from `NUXT_*` variables, creates the data directory at startup and opens the SQLite database there (`luz.db`), applying pending migrations before it serves any request. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
+- **Status:** v0.1 Foundation. The monorepo and its tooling are in place; `apps/web` has the app shell (Nuxt UI sidebar layout, themes, placeholder pages) and `packages/core` holds the settings and server config schemas (Zod), consumed from its TypeScript sources (no build step). The server reads its configuration from `NUXT_*` variables, creates the data directory at startup and opens the SQLite database there (`luz.db`), applying pending migrations and writing the default settings before it serves any request. The settings (theme, music library path) are read and edited through `GET`/`PATCH /api/settings` and the Settings page; the server sets the colour-mode cookie from the stored theme, so the page renders in the right theme without a flash. Keep the [Commands](#commands) and [Layout](#layout) sections in sync with reality.
 
 Read before working:
 
@@ -37,7 +37,9 @@ apps/web/                 Nuxt app: UI (app/) and API (server/)
   app/                    pages, layouts, components, composables, stores, utils
   app/app.config.ts       Nuxt UI theme: neutral colour, pixelarticons icons, subtle inputs
   test/nuxt/              component tests in the Nuxt environment (@nuxt/test-utils)
+  app/plugins/            Nuxt plugins (e.g. loading the settings during server rendering)
   test/unit/              plain Node tests for server code (root `web-unit` test project)
+  test/e2e/               builds the app and runs it on a temporary data directory (root `web-e2e` project)
   vitest.config.ts        the web test project, listed in the root test.projects
   drizzle.config.ts       drizzle-kit config: schema, migrations folder, database in the data directory
   .env.example            every NUXT_* variable with its default
