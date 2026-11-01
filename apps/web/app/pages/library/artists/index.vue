@@ -4,13 +4,14 @@ import type { TableColumn } from '@nuxt/ui';
 
 const { query } = useListQuery(artistListQuerySchema);
 const { data } = await useFetch('/api/library/artists', { query });
+const { sorting, sortable } = useSortableHeaders<ArtistSummary>(query);
 
 const sortOptions = [{ label: 'Name', value: 'name' }] as const;
 
 const count = { class: { th: 'text-end', td: 'text-end tabular-nums' } };
 
 const columns: TableColumn<ArtistSummary>[] = [
-	{ id: 'name', header: 'Artist' },
+	{ id: 'name', ...sortable('Artist') },
 	{ id: 'albums', header: 'Albums', meta: count },
 	{ id: 'tracks', header: 'Tracks', meta: count },
 ];
@@ -28,7 +29,13 @@ const columns: TableColumn<ArtistSummary>[] = [
 		:order="query.order"
 		:sort-options="[...sortOptions]"
 	>
-		<UTable :data="data.items" :columns="columns" caption="Artists">
+		<UTable
+			:data="data.items"
+			:columns="columns"
+			:sorting="sorting"
+			:sorting-options="{ manualSorting: true }"
+			caption="Artists"
+		>
 			<template #name-cell="{ row }">
 				<ULink :to="`/library/artists/${row.original.id}`" class="font-medium">
 					{{ artistName(row.original.name) }}

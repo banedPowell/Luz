@@ -4,6 +4,7 @@ import type { TableColumn } from '@nuxt/ui';
 
 const { query } = useListQuery(trackListQuerySchema);
 const { data } = await useFetch('/api/library/tracks', { query });
+const { sorting, sortable } = useSortableHeaders<TrackSummary>(query);
 
 const sortOptions = [
 	{ label: 'Title', value: 'title' },
@@ -17,13 +18,17 @@ const sortOptions = [
 const wide = 'hidden md:table-cell';
 
 const columns: TableColumn<TrackSummary>[] = [
-	{ id: 'title', header: 'Title' },
-	{ id: 'artist', header: 'Artist' },
-	{ id: 'album', header: 'Album' },
-	{ id: 'year', header: 'Year', meta: { class: { th: wide, td: wide } } },
+	{ id: 'title', ...sortable('Title') },
+	{ id: 'artist', ...sortable('Artist') },
+	{ id: 'album', ...sortable('Album') },
+	{
+		id: 'year',
+		...sortable('Year'),
+		meta: { class: { th: wide, td: wide } },
+	},
 	{
 		id: 'duration',
-		header: 'Duration',
+		...sortable('Duration'),
 		meta: { class: { th: `${wide} text-end`, td: `${wide} text-end tabular-nums` } },
 	},
 ];
@@ -41,7 +46,13 @@ const columns: TableColumn<TrackSummary>[] = [
 		:order="query.order"
 		:sort-options="[...sortOptions]"
 	>
-		<UTable :data="data.items" :columns="columns" caption="Tracks">
+		<UTable
+			:data="data.items"
+			:columns="columns"
+			:sorting="sorting"
+			:sorting-options="{ manualSorting: true }"
+			caption="Tracks"
+		>
 			<template #title-cell="{ row }">
 				<span class="font-medium text-highlighted">{{ trackTitle(row.original) }}</span>
 			</template>

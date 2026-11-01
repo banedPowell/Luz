@@ -4,6 +4,7 @@ import type { TableColumn } from '@nuxt/ui';
 
 const { query } = useListQuery(albumListQuerySchema);
 const { data } = await useFetch('/api/library/albums', { query });
+const { sorting, sortable } = useSortableHeaders<AlbumSummary>(query);
 
 const sortOptions = [
 	{ label: 'Title', value: 'title' },
@@ -12,9 +13,9 @@ const sortOptions = [
 ] as const;
 
 const columns: TableColumn<AlbumSummary>[] = [
-	{ id: 'title', header: 'Album' },
-	{ id: 'artist', header: 'Artist' },
-	{ id: 'year', header: 'Year' },
+	{ id: 'title', ...sortable('Album') },
+	{ id: 'artist', ...sortable('Artist') },
+	{ id: 'year', ...sortable('Year') },
 	{
 		id: 'tracks',
 		header: 'Tracks',
@@ -40,7 +41,13 @@ const columns: TableColumn<AlbumSummary>[] = [
 		:order="query.order"
 		:sort-options="[...sortOptions]"
 	>
-		<UTable :data="data.items" :columns="columns" caption="Albums">
+		<UTable
+			:data="data.items"
+			:columns="columns"
+			:sorting="sorting"
+			:sorting-options="{ manualSorting: true }"
+			caption="Albums"
+		>
 			<template #title-cell="{ row }">
 				<ULink :to="`/library/albums/${row.original.id}`" class="font-medium">
 					{{ albumTitle(row.original.title) }}

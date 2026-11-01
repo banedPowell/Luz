@@ -67,6 +67,10 @@ describe('library browsing', async () => {
 		await page.reload();
 		await page.getByRole('link', { name: /^Sort order: ascending/ }).waitFor();
 
+		await page.getByRole('columnheader', { name: 'Album' }).getByRole('link').click();
+		await page.waitForURL('**/library/albums?sort=title&order=asc');
+		await page.locator('th[aria-sort="ascending"]', { hasText: 'Album' }).waitFor();
+
 		await page.close();
 	});
 

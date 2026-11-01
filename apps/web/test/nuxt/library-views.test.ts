@@ -123,6 +123,31 @@ describe('library views', () => {
 		expect(reverse.attributes('href')).toBe('/library?sort=year&order=asc');
 	});
 
+	it('sorts by a column from its header, reversing the column already sorted', async () => {
+		const wrapper = await mountAt('/library?sort=year&order=asc&page=2');
+
+		const header = (name: string) => wrapper.findAll('th').find((cell) => cell.text() === name);
+		expect(header('Year')?.attributes('aria-sort')).toBe('ascending');
+		expect(header('Title')?.attributes('aria-sort')).toBe('none');
+		// Both links go back to the first page
+		expect(header('Year')?.find('a').attributes('href')).toBe('/library?sort=year&order=desc');
+		expect(header('Album')?.find('a').attributes('href')).toBe('/library?sort=album&order=asc');
+	});
+
+	it('marks a descending column, and leaves unsortable columns plain', async () => {
+		const wrapper = await mountAt('/library/albums?sort=artist&order=desc');
+
+		const cells = wrapper.findAll('th');
+		const byArtist = cells.find((cell) => cell.text() === 'Artist');
+		expect(byArtist?.attributes('aria-sort')).toBe('descending');
+		expect(byArtist?.find('a').attributes('href')).toBe(
+			'/library/albums?sort=artist&order=asc',
+		);
+		const tracks = cells.find((cell) => cell.text() === 'Tracks');
+		expect(tracks?.attributes('aria-sort')).toBeUndefined();
+		expect(tracks?.find('a').exists()).toBe(false);
+	});
+
 	it('falls back to the default sort when the URL holds an invalid one', async () => {
 		await mountAt('/library?sort=colour');
 
