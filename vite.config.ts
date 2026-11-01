@@ -66,6 +66,8 @@ export default defineConfig({
 					name: 'web-e2e',
 					root: 'apps/web',
 					include: ['test/e2e/**/*.test.ts'],
+					// Builds the app once; each file then runs its own server on that build
+					globalSetup: ['test/e2e/global-setup.ts'],
 					environment: 'node',
 					// The build alone can take minutes, more on Windows
 					hookTimeout: 300_000,
