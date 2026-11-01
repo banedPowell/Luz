@@ -2,7 +2,7 @@
 
 Luz est un gestionnaire de bibliothèque musicale local d'abord. Il télécharge de la musique depuis des sources en ligne, la tague correctement et la range sous forme de simples fichiers audio sur ton propre disque.
 
-> **État :** développement précoce. L'application n'a encore qu'une coquille (barre latérale, thèmes, pages vides) ; aucune fonctionnalité musicale n'est utilisable. Voir la [feuille de route](docs/ROADMAP.md).
+> **État :** développement précoce. On peut choisir son dossier de musique dans les réglages et le scanner depuis la page Bibliothèque ; la bibliothèque n'est pas encore affichée. Voir la [feuille de route](docs/ROADMAP.md).
 
 ## Pourquoi
 
@@ -37,6 +37,10 @@ Luz se configure par des variables d'environnement `NUXT_*`, toutes décrites av
 | `NUXT_FFPROBE_PATH` | Commande ou chemin de ffprobe                      | `ffprobe`                                                                                                              |
 
 Le dossier de données est créé au premier démarrage. En développement, copie `apps/web/.env.example` en `apps/web/.env` : il règle `NUXT_DATA_DIR=.luz`, ce qui garde tes données de dev à part de tes vraies données. Les journaux du serveur vont sur la sortie standard.
+
+### Scan de la bibliothèque
+
+Le bouton « Scan library » parcourt le dossier de musique des réglages et ses sous-dossiers, lit les tags des fichiers audio (MP3, FLAC, M4A/AAC, Ogg, Opus, WAV, AIFF) et reconstruit la bibliothèque. Les fichiers sont seulement lus, jamais modifiés. Le scan ignore les fichiers et dossiers cachés (nom commençant par un point) et ne suit pas les liens symboliques ni les jonctions Windows, pour ne pas boucler ni indexer des fichiers hors du dossier. Un fichier illisible est sauté et compté dans le résumé.
 
 La base SQLite (`luz.db`) vit dans ce dossier ; ses migrations s'appliquent toutes seules au démarrage du serveur. Pour faire évoluer le schéma (`apps/web/server/infrastructure/database/schema.ts`) :
 

@@ -5,6 +5,7 @@ import {
 	artistOf,
 	formatArtists,
 	groupingKey,
+	isAudioFile,
 	trackTagsSchema,
 	unknownKey,
 } from './library.ts';
@@ -114,4 +115,20 @@ describe('formatArtists', () => {
 		expect(formatArtists([])).toBeNull();
 		expect(formatArtists(['', ' '])).toBeNull();
 	});
+});
+
+describe('isAudioFile', () => {
+	it.each(['song.mp3', 'a/b/01 Song.FLAC', 'C:\\Music\\track.m4a', 'x.ogg', 'x.opus', 'x.wav'])(
+		'keeps %s',
+		(name) => {
+			expect(isAudioFile(name)).toBe(true);
+		},
+	);
+
+	it.each(['cover.jpg', 'notes.txt', 'playlist.m3u', 'mp3', 'song.mp3.part', 'video.mp4'])(
+		'ignores %s',
+		(name) => {
+			expect(isAudioFile(name)).toBe(false);
+		},
+	);
 });
