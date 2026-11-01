@@ -1,6 +1,6 @@
 import { themes } from '@luz/core';
 import { sql } from 'drizzle-orm';
-import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 // Literal SQL list: CHECK constraints cannot take bound parameters
 const themeList = sql.raw(themes.map((theme) => `'${theme}'`).join(', '));
@@ -21,4 +21,58 @@ export const settings = sqliteTable(
 		check('settings_single_row', sql`${table.id} = 1`),
 		check('settings_theme', sql`${table.theme} in (${themeList})`),
 	],
+);
+
+/**
+ * The artists albums are grouped under (album artist, else first track artist; see
+ * @luz/core). The library tables are an index of the audio files, which stay the
+ * source of truth: a rescan can rebuild them.
+ */
+export const artists = sqliteTable('artists', {
+	id: integer('id').primaryKey(),
+	// groupingKey() of the name; '' is the unknown artist
+	key: text('key').notNull().unique(),
+	// The name as first seen; null for the unknown artist
+	name: text('name'),
+});
+
+export const albums = sqliteTable(
+	'albums',
+	{
+		id: integer('id').primaryKey(),
+		artistId: integer('artist_id')
+			.notNull()
+			.references(() => artists.id),
+		// groupingKey() of the title; '' is the unknown album of this artist
+		key: text('key').notNull(),
+		title: text('title'),
+	},
+	(table) => [unique('albums_artist_key').on(table.artistId, table.key)],
+);
+
+/**
+ * One row per audio file. A track reaches its artist through its album, so the
+ * grouping lives in one place. Track artists are kept as a display string: v0.2 browses
+ * by album artist, and splitting "A feat. B" reliably needs metadata providers (v0.4).
+ */
+export const tracks = sqliteTable(
+	'tracks',
+	{
+		id: integer('id').primaryKey(),
+		path: text('path').notNull().unique(),
+		albumId: integer('album_id')
+			.notNull()
+			.references(() => albums.id),
+		title: text('title'),
+		artists: text('artists'),
+		trackNumber: integer('track_number'),
+		discNumber: integer('disc_number'),
+		year: integer('year'),
+		genre: text('genre'),
+		durationMs: integer('duration_ms'),
+		// Compared by the rescan to skip files that did not change
+		fileSize: integer('file_size').notNull(),
+		modifiedAtMs: integer('modified_at_ms').notNull(),
+	},
+	(table) => [index('tracks_album_id').on(table.albumId)],
 );
