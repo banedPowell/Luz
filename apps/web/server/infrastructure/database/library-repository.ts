@@ -94,6 +94,15 @@ export async function deleteTrack(db: Database, path: string): Promise<boolean> 
 	});
 }
 
+/** Removes every track, album and artist, for a scan that rebuilds the library. */
+export async function clearLibrary(db: Database): Promise<void> {
+	await db.transaction(async (tx) => {
+		await tx.delete(tracks);
+		await tx.delete(albums);
+		await tx.delete(artists);
+	});
+}
+
 async function requireTrack(db: Database, path: string): Promise<LibraryTrack> {
 	const track = await findTrackByPath(db, path);
 	if (!track) {

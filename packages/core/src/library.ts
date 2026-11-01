@@ -73,3 +73,26 @@ export function formatArtists(artists: string[]): string | null {
 	const names = artists.map(clean).filter((name) => name !== undefined);
 	return names.length === 0 ? null : names.join(', ');
 }
+
+/**
+ * The file extensions a scan keeps, lowercase: the formats of ADR 0005 and the
+ * uncompressed ones music-metadata also reads. Anything else in the folder is ignored.
+ */
+export const audioFileExtensions = [
+	'.aac',
+	'.aif',
+	'.aiff',
+	'.flac',
+	'.m4a',
+	'.mp3',
+	'.oga',
+	'.ogg',
+	'.opus',
+	'.wav',
+] as const;
+
+/** Whether a file name or path ends with a supported audio extension, in any case. */
+export function isAudioFile(fileName: string): boolean {
+	const name = fileName.toLowerCase();
+	return audioFileExtensions.some((extension) => name.endsWith(extension));
+}
