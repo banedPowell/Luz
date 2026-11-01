@@ -54,6 +54,12 @@ vp run test        # tous les tests
 vp run build       # build de production
 ```
 
+Un test lance l'app buildée dans Chromium (headless, via Playwright). Installe le navigateur une fois, depuis `apps/web` :
+
+```sh
+vp exec playwright-core install --only-shell chromium
+```
+
 ## Contribuer
 
 Le fonctionnement est décrit dans [CONTRIBUTING.md](CONTRIBUTING.md).
