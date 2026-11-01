@@ -42,12 +42,18 @@ describe('AppNavigation', () => {
 		});
 		const wrapper = await mountSuspended(CollapsedInApp);
 
-		const links = wrapper.findAll('a');
+		// happy-dom ignores CSS, so the hidden label would still give text():
+		// collapsed, the name must come from aria-label
+		const names = wrapper.findAll('a').map((link) => link.attributes('aria-label'));
 
-		expect(links).toHaveLength(4);
-		for (const link of links) {
-			const name = link.attributes('aria-label') ?? link.text();
-			expect(name).not.toBe('');
+		expect(names).toEqual(['Home', 'Library', 'Downloads', 'Settings']);
+	});
+
+	it('names expanded links by their visible label only', async () => {
+		const wrapper = await mountSuspended(AppNavigation);
+
+		for (const link of wrapper.findAll('a')) {
+			expect(link.attributes('aria-label')).toBeUndefined();
 		}
 	});
 });

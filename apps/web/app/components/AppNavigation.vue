@@ -14,6 +14,9 @@ const items = computed<NavigationMenuItem[]>(() => {
 		icon: entry.icon,
 		to: entry.to,
 		active: entry === current,
+		// Collapsed, the label span is display: none and the icon is aria-hidden,
+		// so the link needs its name from an attribute
+		...(collapsed ? { 'aria-label': entry.label } : {}),
 	}));
 });
 </script>
