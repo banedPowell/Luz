@@ -38,6 +38,13 @@ Luz se configure par des variables d'environnement `NUXT_*`, toutes décrites av
 
 Le dossier de données est créé au premier démarrage. En développement, copie `apps/web/.env.example` en `apps/web/.env` : il règle `NUXT_DATA_DIR=.luz`, ce qui garde tes données de dev à part de tes vraies données. Les journaux du serveur vont sur la sortie standard.
 
+La base SQLite (`luz.db`) vit dans ce dossier ; ses migrations s'appliquent toutes seules au démarrage du serveur. Pour faire évoluer le schéma (`apps/web/server/infrastructure/database/schema.ts`) :
+
+```sh
+vp run db:generate --name <nom>   # génère la migration à committer avec le schéma
+vp run db:studio                  # explore la base avec Drizzle Studio
+```
+
 Avant de proposer une modification, lance ce que lance la CI :
 
 ```sh

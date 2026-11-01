@@ -7,12 +7,16 @@
 		"dev": "nuxt dev",
 		"build": "nuxt build",
 		"preview": "nuxt preview",
-		"typecheck": "nuxt typecheck"
+		"typecheck": "nuxt typecheck",
+		"db:generate": "drizzle-kit generate",
+		"db:studio": "drizzle-kit studio"
 	},
 	"dependencies": {
+		"@libsql/client": "^0.18.0",
 		"@luz/core": "workspace:*",
 		"@nuxt/ui": "^4.12.0",
 		"consola": "^3.4.2",
+		"drizzle-orm": "^0.45.4",
 		"nuxt": "^4.6.3",
 		"tailwindcss": "^4.3.3",
 		"vue": "^3.5.44"
@@ -21,6 +25,7 @@
 		"@iconify-json/pixelarticons": "^1.2.10",
 		"@nuxt/test-utils": "^4.3.4",
 		"@vue/test-utils": "^2.5.1",
+		"drizzle-kit": "^0.31.11",
 		"happy-dom": "^21.0.4",
 		"typescript": "^6.0.3",
 		"vitest": "catalog:",

@@ -55,6 +55,9 @@ export default defineConfig({
 					root: 'apps/web',
 					include: ['test/unit/**/*.test.ts'],
 					environment: 'node',
+					// libSQL finalizes its native statements on garbage collection, and Windows
+					// keeps a database file locked until then: tests collect before deleting it
+					execArgv: ['--expose-gc'],
 				},
 			},
 		],
