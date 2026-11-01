@@ -103,7 +103,7 @@ Enable, disable and order download sources from the settings, beyond the default
 
 ### Audio player
 
-A simple built-in player, as long as it stays cheap to build and maintain. Luz remains a file manager first.
+A simple built-in player, as long as it stays cheap to build and maintain. Luz remains a file manager first. The interface leaves it room but does not design it yet (see [interface principles](design/interface-principles.md)).
 
 ### Self-hosting (v2)
 
