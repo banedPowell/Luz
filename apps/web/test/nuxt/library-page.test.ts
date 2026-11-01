@@ -1,4 +1,4 @@
-import type { ScanSummary, Settings } from '@luz/core';
+import type { LibraryPage, ScanSummary, Settings, TrackSummary } from '@luz/core';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { NuxtPage, UApp } from '#components';
 import { createError } from 'h3';
@@ -13,8 +13,19 @@ let stored: Settings;
 let scanResult: ScanSummary | { reason: string };
 let release: () => void;
 let gate: Promise<void> | undefined;
+let indexed: TrackSummary[];
 
 registerEndpoint('/api/settings', { method: 'GET', handler: () => stored });
+
+registerEndpoint('/api/library/tracks', {
+	method: 'GET',
+	handler: (): LibraryPage<TrackSummary> => ({
+		items: indexed,
+		total: indexed.length,
+		page: 1,
+		pageSize: 50,
+	}),
+});
 
 registerEndpoint('/api/library/scan', {
 	method: 'POST',
@@ -45,7 +56,8 @@ describe('library page', () => {
 		stored = { theme: 'system', musicLibraryPath: '/music' };
 		scanResult = { filesFound: 3, tracksIndexed: 2, filesSkipped: 1 };
 		gate = undefined;
-		clearNuxtState('settings');
+		indexed = [];
+		clearNuxtState();
 	});
 
 	it('links to the settings when no folder is set', async () => {
@@ -76,6 +88,32 @@ describe('library page', () => {
 				'3 audio files found, 2 tracks indexed, 1 file skipped.',
 			);
 		});
+	});
+
+	it('lists the tracks a scan indexed, from an empty library', async () => {
+		const wrapper = await mountPage();
+		expect(wrapper.text()).toContain('Your library is empty');
+
+		indexed = [
+			{
+				id: 1,
+				title: 'Fresh Track',
+				fileName: '01.flac',
+				artists: 'Alpha',
+				trackNumber: 1,
+				discNumber: 1,
+				year: 2001,
+				durationMs: 1000,
+				album: { id: 1, title: 'Alpha One' },
+				artist: { id: 1, name: 'Alpha' },
+			},
+		];
+		await scanButton(wrapper).trigger('click');
+
+		await vi.waitFor(() => {
+			expect(wrapper.text()).toContain('Fresh Track');
+		});
+		expect(wrapper.text()).not.toContain('Your library is empty');
 	});
 
 	it('explains a refused scan', async () => {
