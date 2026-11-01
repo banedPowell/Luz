@@ -54,7 +54,7 @@ function scanButton(wrapper: Awaited<ReturnType<typeof mountPage>>) {
 describe('library page', () => {
 	beforeEach(() => {
 		stored = { theme: 'system', musicLibraryPath: '/music' };
-		scanResult = { filesFound: 3, tracksIndexed: 2, filesSkipped: 1 };
+		scanResult = { added: 2, updated: 1, removed: 3, unchanged: 4, skipped: 1 };
 		gate = undefined;
 		indexed = [];
 		clearNuxtState();
@@ -85,7 +85,7 @@ describe('library page', () => {
 		release();
 		await vi.waitFor(() => {
 			expect(wrapper.text()).toContain(
-				'3 audio files found, 2 tracks indexed, 1 file skipped.',
+				'2 tracks added, 1 updated, 3 removed, 4 unchanged, 1 file skipped.',
 			);
 		});
 	});

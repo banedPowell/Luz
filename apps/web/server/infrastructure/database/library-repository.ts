@@ -19,6 +19,7 @@ import {
 	count,
 	countDistinct,
 	eq,
+	inArray,
 	max,
 	notExists,
 	sql,
@@ -119,12 +120,41 @@ export async function deleteTrack(db: Database, path: string): Promise<boolean> 
 	});
 }
 
-/** Removes every track, album and artist, for a scan that rebuilds the library. */
-export async function clearLibrary(db: Database): Promise<void> {
-	await db.transaction(async (tx) => {
-		await tx.delete(tracks);
-		await tx.delete(albums);
-		await tx.delete(artists);
+/** The file of a stored track as last indexed, for the rescan to compare with the disk. */
+export interface IndexedFile {
+	path: string;
+	fileSize: number;
+	modifiedAtMs: number;
+}
+
+export function listIndexedFiles(db: Database): Promise<IndexedFile[]> {
+	return db
+		.select({ path: tracks.path, fileSize: tracks.fileSize, modifiedAtMs: tracks.modifiedAtMs })
+		.from(tracks);
+}
+
+// Well below SQLite's limit on bound parameters, whatever the build
+const deleteBatchSize = 500;
+
+/**
+ * Removes the tracks with these paths and the albums and artists they leave empty, in one
+ * transaction. Only the index changes: the files are never touched. Returns how many existed.
+ */
+export async function deleteTracks(db: Database, paths: readonly string[]): Promise<number> {
+	if (paths.length === 0) {
+		return 0;
+	}
+	return db.transaction(async (tx) => {
+		let deleted = 0;
+		for (let start = 0; start < paths.length; start += deleteBatchSize) {
+			const rows = await tx
+				.delete(tracks)
+				.where(inArray(tracks.path, paths.slice(start, start + deleteBatchSize)))
+				.returning({ id: tracks.id });
+			deleted += rows.length;
+		}
+		await pruneEmptyGroups(tx);
+		return deleted;
 	});
 }
 

@@ -7,8 +7,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
 import {
 	deleteTrack,
+	deleteTracks,
 	findTrackByPath,
 	insertTrack,
+	listIndexedFiles,
 	updateTrack,
 	type TrackFile,
 } from '../../server/infrastructure/database/library-repository';
@@ -201,6 +203,42 @@ describe('library repository', () => {
 
 	it('returns false when deleting an unknown path', async () => {
 		expect(await deleteTrack(db, '/m/missing.mp3')).toBe(false);
+	});
+
+	it('deletes several tracks at once, then the groups they leave empty', async () => {
+		await insertTrack(db, trackFile('/m/1.mp3', { artists: ['A'], album: 'One' }));
+		await insertTrack(db, trackFile('/m/2.mp3', { artists: ['A'], album: 'One' }));
+		await insertTrack(db, trackFile('/m/3.mp3', { artists: ['B'], album: 'Two' }));
+
+		expect(await deleteTracks(db, ['/m/1.mp3', '/m/3.mp3', '/m/missing.mp3'])).toBe(2);
+		expect(await groups()).toEqual({ artists: ['A'], albums: ['One'] });
+		expect(await deleteTracks(db, [])).toBe(0);
+	});
+
+	it('deletes more tracks than one statement can bind', async () => {
+		const { album } = await insertTrack(db, trackFile('/m/first.mp3', { album: 'Big' }));
+		const paths = Array.from({ length: 1200 }, (_, index) => `/m/${index}.mp3`);
+		// One insert: a track at a time would take seconds
+		await db.insert(tracks).values(
+			paths.map((filePath) => ({
+				path: filePath,
+				albumId: album.id,
+				fileSize: 1,
+				modifiedAtMs: 1,
+			})),
+		);
+		paths.push('/m/first.mp3');
+
+		expect(await deleteTracks(db, paths)).toBe(1201);
+		expect(await groups()).toEqual({ artists: [], albums: [] });
+	});
+
+	it('lists the indexed files with the size and time the rescan compares', async () => {
+		await insertTrack(db, trackFile('/m/1.mp3'));
+
+		expect(await listIndexedFiles(db)).toEqual([
+			{ path: '/m/1.mp3', fileSize: 1024, modifiedAtMs: 1_700_000_000_000 },
+		]);
 	});
 
 	it('enforces the foreign keys', async () => {

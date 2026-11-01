@@ -1,8 +1,14 @@
-/** What a library scan did: audio files met, tracks stored, files skipped because their tags could not be read. */
+/**
+ * What a library scan did, in audio files: new ones indexed, changed ones read again,
+ * tracks removed because their file is gone, files left as they were, and files skipped
+ * because their tags could not be read.
+ */
 export interface ScanSummary {
-	filesFound: number;
-	tracksIndexed: number;
-	filesSkipped: number;
+	added: number;
+	updated: number;
+	removed: number;
+	unchanged: number;
+	skipped: number;
 }
 
 export const scanErrorReasons = [
