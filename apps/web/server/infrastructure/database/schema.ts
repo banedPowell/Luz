@@ -34,6 +34,10 @@ export const artists = sqliteTable('artists', {
 	key: text('key').notNull().unique(),
 	// The name as first seen; null for the unknown artist
 	name: text('name'),
+	// searchKey() of the name (@luz/core), matched with LIKE: SQLite folds neither
+	// accents nor non-ASCII case. Null when the name is, or for a row indexed before
+	// the column existed, until fillSearchKeys() completes it at startup.
+	searchName: text('search_name'),
 });
 
 export const albums = sqliteTable(
@@ -46,6 +50,7 @@ export const albums = sqliteTable(
 		// groupingKey() of the title; '' is the unknown album of this artist
 		key: text('key').notNull(),
 		title: text('title'),
+		searchTitle: text('search_title'),
 	},
 	(table) => [unique('albums_artist_key').on(table.artistId, table.key)],
 );
@@ -64,6 +69,7 @@ export const tracks = sqliteTable(
 			.notNull()
 			.references(() => albums.id),
 		title: text('title'),
+		searchTitle: text('search_title'),
 		artists: text('artists'),
 		trackNumber: integer('track_number'),
 		discNumber: integer('disc_number'),

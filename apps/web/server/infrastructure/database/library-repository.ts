@@ -3,6 +3,7 @@ import {
 	albumOf,
 	artistOf,
 	formatArtists,
+	searchKey,
 	type AlbumDetail,
 	type AlbumSortKey,
 	type AlbumSummary,
@@ -15,11 +16,14 @@ import {
 	type TrackTags,
 } from '@luz/core';
 import {
+	and,
 	asc,
 	count,
 	countDistinct,
 	eq,
 	inArray,
+	isNotNull,
+	isNull,
 	max,
 	notExists,
 	sql,
@@ -104,7 +108,8 @@ export async function findTrackByPath(
 	if (!row) {
 		return undefined;
 	}
-	const { albumId: _albumId, ...track } = row.track;
+	// The search key is an index detail, like the album id the joins already resolve
+	const { albumId: _albumId, searchTitle: _searchTitle, ...track } = row.track;
 	return { ...track, album: row.album, artist: row.artist };
 }
 
@@ -172,6 +177,7 @@ async function toTrackRow(tx: Transaction, file: TrackFile): Promise<typeof trac
 		path: file.path,
 		albumId: await ensureAlbum(tx, file.tags),
 		title: tags.title ?? null,
+		searchTitle: searchKeyOf(tags.title),
 		artists: formatArtists(tags.artists),
 		trackNumber: tags.trackNumber ?? null,
 		discNumber: tags.discNumber ?? null,
@@ -188,17 +194,67 @@ async function ensureAlbum(tx: Transaction, tags: TrackTags): Promise<number> {
 	const artist = artistOf(tags);
 	const [artistRow] = await tx
 		.insert(artists)
-		.values({ key: artist.key, name: artist.name })
+		.values({ key: artist.key, name: artist.name, searchName: searchKeyOf(artist.name) })
 		.onConflictDoUpdate({ target: artists.key, set: { key: artist.key } })
 		.returning({ id: artists.id });
 
 	const album = albumOf(tags);
 	const [albumRow] = await tx
 		.insert(albums)
-		.values({ artistId: requireId(artistRow), key: album.key, title: album.name })
+		.values({
+			artistId: requireId(artistRow),
+			key: album.key,
+			title: album.name,
+			searchTitle: searchKeyOf(album.name),
+		})
 		.onConflictDoUpdate({ target: [albums.artistId, albums.key], set: { key: album.key } })
 		.returning({ id: albums.id });
 	return requireId(albumRow);
+}
+
+function searchKeyOf(name: string | null | undefined): string | null {
+	return name === null || name === undefined ? null : searchKey(name);
+}
+
+/**
+ * Writes the search key of the names that have none: rows indexed before the search
+ * columns existed. A rescan would not do it, since it skips unchanged files.
+ * Returns how many rows it completed.
+ */
+export async function fillSearchKeys(db: Database): Promise<number> {
+	return db.transaction(async (tx) => {
+		const trackRows = await tx
+			.select({ id: tracks.id, name: tracks.title })
+			.from(tracks)
+			.where(and(isNotNull(tracks.title), isNull(tracks.searchTitle)));
+		for (const row of trackRows) {
+			await tx
+				.update(tracks)
+				.set({ searchTitle: searchKeyOf(row.name) })
+				.where(eq(tracks.id, row.id));
+		}
+		const albumRows = await tx
+			.select({ id: albums.id, name: albums.title })
+			.from(albums)
+			.where(and(isNotNull(albums.title), isNull(albums.searchTitle)));
+		for (const row of albumRows) {
+			await tx
+				.update(albums)
+				.set({ searchTitle: searchKeyOf(row.name) })
+				.where(eq(albums.id, row.id));
+		}
+		const artistRows = await tx
+			.select({ id: artists.id, name: artists.name })
+			.from(artists)
+			.where(and(isNotNull(artists.name), isNull(artists.searchName)));
+		for (const row of artistRows) {
+			await tx
+				.update(artists)
+				.set({ searchName: searchKeyOf(row.name) })
+				.where(eq(artists.id, row.id));
+		}
+		return trackRows.length + albumRows.length + artistRows.length;
+	});
 }
 
 function requireId(row: { id: number } | undefined): number {
@@ -404,4 +460,79 @@ export async function findArtist(db: Database, id: number): Promise<ArtistDetail
 		...artist,
 		albums: albumRows.map((album) => ({ ...album, tracks: tracksByAlbum.get(album.id) ?? [] })),
 	};
+}
+
+/** A search key, matched anywhere in a search column; the key's own wildcards are literal. */
+function containing(column: SQLWrapper, key: string): SQL {
+	const pattern = `%${key.replaceAll(/[\\%_]/g, (character) => `\\${character}`)}%`;
+	return sql`${column} like ${pattern} escape '\\'`;
+}
+
+// Names that start with the query come first, then the alphabetical order
+function startingWith(column: SQLWrapper, key: string): SQL {
+	return sql`instr(${column}, ${key}) = 1 desc`;
+}
+
+/** The first tracks whose title contains the search key, and how many there are. */
+export async function searchTracks(
+	db: Database,
+	key: string,
+	limit: number,
+): Promise<{ items: TrackSummary[]; total: number }> {
+	const where = containing(tracks.searchTitle, key);
+	const rows = await selectTracks(db)
+		.where(where)
+		.orderBy(
+			startingWith(tracks.searchTitle, key),
+			by(tracks.title, 'asc', true),
+			asc(tracks.id),
+		)
+		.limit(limit);
+	return { items: rows.map(toTrackSummary), total: await db.$count(tracks, where) };
+}
+
+// The first albums are picked before their tracks are counted: counting every match,
+// then keeping ten, took over 100 ms for a one-letter query on 60,000 tracks
+export async function searchAlbums(
+	db: Database,
+	key: string,
+	limit: number,
+): Promise<{ items: AlbumSummary[]; total: number }> {
+	const where = containing(albums.searchTitle, key);
+	const order = [
+		startingWith(albums.searchTitle, key),
+		by(albums.title, 'asc', true),
+		by(artists.name, 'asc', true),
+		asc(albums.id),
+	];
+	const first = db
+		.select({ id: albums.id })
+		.from(albums)
+		.innerJoin(artists, eq(artists.id, albums.artistId))
+		.where(where)
+		.orderBy(...order)
+		.limit(limit);
+	const items = await selectAlbums(db, inArray(albums.id, first)).orderBy(...order);
+	return { items, total: await db.$count(albums, where) };
+}
+
+export async function searchArtists(
+	db: Database,
+	key: string,
+	limit: number,
+): Promise<{ items: ArtistSummary[]; total: number }> {
+	const where = containing(artists.searchName, key);
+	const order = [
+		startingWith(artists.searchName, key),
+		by(artists.name, 'asc', true),
+		asc(artists.id),
+	];
+	const first = db
+		.select({ id: artists.id })
+		.from(artists)
+		.where(where)
+		.orderBy(...order)
+		.limit(limit);
+	const items = await selectArtists(db, inArray(artists.id, first)).orderBy(...order);
+	return { items, total: await db.$count(artists, where) };
 }

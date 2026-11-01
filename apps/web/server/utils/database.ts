@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import { databaseFileName, openDatabase, type Database } from '../infrastructure/database/client';
+import { fillSearchKeys } from '../infrastructure/database/library-repository';
 import { applyMigrations, loadMigrations } from '../infrastructure/database/migrations';
 import { ensureSettings } from '../infrastructure/database/settings-repository';
 import { useLuzConfig } from './config';
@@ -9,8 +10,9 @@ import { logger } from './logger';
 let database: Promise<Database> | undefined;
 
 /**
- * The database, once its migrations are applied and the settings row exists. Started at startup by the database
- * plugin; awaiting it here means a failed migration surfaces as an error to the caller.
+ * The database, once its migrations are applied, the settings row exists and every name has
+ * its search key. Started at startup by the database plugin; awaiting it here means a failed
+ * migration surfaces as an error to the caller.
  */
 export function useDatabase(): Promise<Database> {
 	database ??= initializeDatabase();
@@ -40,6 +42,10 @@ async function initializeDatabase(): Promise<Database> {
 
 	// On first start, the defaults from @luz/core; later starts keep the stored choices
 	await ensureSettings(db);
+	const filled = await fillSearchKeys(db);
+	if (filled > 0) {
+		logger.info(`Database ${file}: indexed ${filled} names for search`);
+	}
 	return db;
 }
 
