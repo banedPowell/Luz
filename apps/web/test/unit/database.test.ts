@@ -29,7 +29,10 @@ describe('loadMigrations', () => {
 	it('reads the committed migrations in journal order', async () => {
 		const migrations = await loadMigrations(readMigrationsFolder);
 
-		expect(migrations.map((migration) => migration.tag)).toEqual(['0000_create_settings']);
+		expect(migrations.map((migration) => migration.tag)).toEqual([
+			'0000_create_settings',
+			'0001_create_library',
+		]);
 		expect(migrations[0]?.statements[0]).toMatch(/^CREATE TABLE `settings`/);
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
 	});
@@ -106,6 +109,7 @@ describe('database', () => {
 	it('applies the migrations once', async () => {
 		expect((await migrate()).map((migration) => migration.tag)).toEqual([
 			'0000_create_settings',
+			'0001_create_library',
 		]);
 		expect(await migrate()).toEqual([]);
 	});
