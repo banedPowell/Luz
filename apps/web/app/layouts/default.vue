@@ -21,6 +21,14 @@ watch(
 
 <template>
 	<div class="flex min-h-svh flex-1 bg-muted">
+		<!-- First focusable element, so keyboard users can bypass the sidebar (WCAG 2.4.1) -->
+		<a
+			href="#main"
+			class="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-default focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-highlighted focus:shadow-lg focus:ring focus:ring-default focus-visible:outline-2 focus-visible:outline-primary"
+		>
+			Skip to content
+		</a>
+
 		<USidebar
 			v-model:open="open"
 			variant="inset"
@@ -64,7 +72,12 @@ watch(
 				/>
 				<h1 class="flex-1 truncate text-lg font-semibold text-highlighted">{{ title }}</h1>
 			</header>
-			<main class="flex-1 overflow-auto p-4 md:p-6">
+			<!-- tabindex="-1" lets the skip link move focus here, not only scroll -->
+			<main
+				id="main"
+				tabindex="-1"
+				class="flex-1 overflow-auto p-4 focus:outline-none md:p-6"
+			>
 				<slot />
 			</main>
 		</div>
