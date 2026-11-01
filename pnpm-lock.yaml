@@ -200,6 +200,9 @@ importers:
       '@nuxt/ui':
         specifier: ^4.12.0
         version: 4.12.0(ac2aade75b89e7b865d282b3a9857336)
+      consola:
+        specifier: ^3.4.2
+        version: 3.4.2
       nuxt:
         specifier: ^4.6.3
         version: 4.6.3(779afdc35c0e1fb5e52befa1c5cb39f4)

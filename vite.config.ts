@@ -48,6 +48,15 @@ export default defineConfig({
 			'packages/*',
 			// Nuxt tests run in their own @nuxt/test-utils config (ADR 0001)
 			'apps/web',
+			{
+				// Plain Node tests for server code, without the cost of the Nuxt environment
+				test: {
+					name: 'web-unit',
+					root: 'apps/web',
+					include: ['test/unit/**/*.test.ts'],
+					environment: 'node',
+				},
+			},
 		],
 	},
 });
