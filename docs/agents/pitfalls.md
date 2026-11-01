@@ -29,6 +29,7 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 - **Untyped `$fetch` from `@nuxt/test-utils`** hits TS2321 ("Excessive stack depth") on Nitro typed routes: give the return type, `$fetch<Settings>(...)`.
 - **E2E tests are type-checked without the DOM lib**: `document` inside `page.evaluate` fails with TS2584. Use selectors (`page.waitForSelector('html.dark', { state: 'attached' })`, `locator.getAttribute()`).
 - **The e2e build happens once, in `test/e2e/global-setup.ts`**, through a child Node process (`build-app.mts`): loaded inside Vitest's module runner, Nuxt's module resolution crashes in the runner's source-map support ("code.charCodeAt is not a function"). Every e2e file spreads `sharedBuild` from `test/e2e/build.ts` into `setup()` (`build: false`, shared output); a new file must do the same, or it builds again.
+- **`page.waitForURL()` resolves before the client-side view renders**: the previous view is still on screen, so a locator can match its elements (strict-mode violation, or a count of 0). After a navigation, wait for something only the new view shows (`getByText('1 album').waitFor()`, its heading).
 - **The e2e build prints esbuild "Big integer literals" warnings**: harmless.
 - **`playwright-core install` must run from `apps/web`** through `vp exec`, where the package is installed.
 
