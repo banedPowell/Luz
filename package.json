@@ -6,6 +6,8 @@
 	"scripts": {
 		"prepare": "vp config",
 		"dev": "vp run --filter ./apps/web dev",
+		"db:generate": "vp run --filter ./apps/web db:generate",
+		"db:studio": "vp run --filter ./apps/web db:studio",
 		"typecheck": "vp run -r typecheck",
 		"test": "vp test",
 		"build": "vp run -r build"
