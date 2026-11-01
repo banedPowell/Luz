@@ -8,6 +8,8 @@ const { collapsed = false } = defineProps<{
 
 const colorMode = useColorMode();
 const appConfig = useAppConfig();
+const { update } = useSettings();
+const toast = useToast();
 
 const options = computed(
 	() =>
@@ -30,11 +32,27 @@ const items = computed<DropdownMenuItem[]>(() =>
 		icon: option.icon,
 		type: 'checkbox',
 		checked: option.value === colorMode.preference,
-		onSelect: () => {
-			colorMode.preference = option.value;
-		},
+		onSelect: () => selectTheme(option.value),
 	})),
 );
+
+// Applied at once for feedback, then saved: the stored theme is the one every page and
+// every reload uses, so a failed save puts the previous theme back.
+async function selectTheme(theme: Theme) {
+	const previous = colorMode.preference;
+	colorMode.preference = theme;
+	try {
+		await update({ theme });
+	} catch {
+		colorMode.preference = previous;
+		toast.add({
+			title: 'Could not save the theme',
+			description: 'The previous theme was restored. Try again later.',
+			color: 'error',
+			icon: appConfig.ui.icons.error,
+		});
+	}
+}
 </script>
 
 <template>

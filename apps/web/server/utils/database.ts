@@ -2,13 +2,14 @@ import path from 'node:path';
 
 import { databaseFileName, openDatabase, type Database } from '../infrastructure/database/client';
 import { applyMigrations, loadMigrations } from '../infrastructure/database/migrations';
+import { ensureSettings } from '../infrastructure/database/settings-repository';
 import { useLuzConfig } from './config';
 import { logger } from './logger';
 
 let database: Promise<Database> | undefined;
 
 /**
- * The database, once its migrations are applied. Started at startup by the database
+ * The database, once its migrations are applied and the settings row exists. Started at startup by the database
  * plugin; awaiting it here means a failed migration surfaces as an error to the caller.
  */
 export function useDatabase(): Promise<Database> {
@@ -36,6 +37,9 @@ async function initializeDatabase(): Promise<Database> {
 	} else {
 		logger.info(`Database ${file}: up to date`);
 	}
+
+	// On first start, the defaults from @luz/core; later starts keep the stored choices
+	await ensureSettings(db);
 	return db;
 }
 

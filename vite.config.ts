@@ -60,6 +60,21 @@ export default defineConfig({
 					execArgv: ['--expose-gc'],
 				},
 			},
+			{
+				// Builds the app and runs it on a temporary data directory (@nuxt/test-utils/e2e)
+				test: {
+					name: 'web-e2e',
+					root: 'apps/web',
+					include: ['test/e2e/**/*.test.ts'],
+					environment: 'node',
+					// The build alone can take minutes, more on Windows
+					hookTimeout: 300_000,
+					testTimeout: 60_000,
+					// Loaded natively, @nuxt/test-utils would import its own copy of vitest and
+					// register its hooks outside the running suite; inlined, it shares the runner's
+					server: { deps: { inline: ['@nuxt/test-utils'] } },
+				},
+			},
 		],
 	},
 });

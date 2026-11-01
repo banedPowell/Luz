@@ -2,11 +2,19 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
+import { colorModeCookie } from './app/utils/color-mode';
+
 export default defineNuxtConfig({
 	compatibilityDate: '2026-10-31',
 	devtools: { enabled: true },
 	modules: ['@nuxt/ui'],
 	css: ['~/assets/css/main.css'],
+	colorMode: {
+		// A cookie rather than localStorage: the server sets it from the stored theme, and the
+		// color-mode head script reads it before the first paint (app/plugins/settings.server.ts)
+		storage: 'cookie',
+		storageKey: colorModeCookie,
+	},
 	// Server-only values, overridden at runtime by NUXT_* variables (see .env.example)
 	runtimeConfig: {
 		// Empty means the per-OS default, resolved in server/infrastructure/data-directory.ts
@@ -27,9 +35,9 @@ export default defineNuxtConfig({
 			traceInclude: libsqlNativeBindings(),
 		},
 		typescript: {
-			// Unit tests exercise server code, so they share its Node and Nitro types.
+			// Unit and e2e tests run in Node beside the server, so they share its Node and Nitro types.
 			// Paths are relative to .nuxt/, where the server tsconfig is generated.
-			tsConfig: { include: ['../test/unit/**/*'] },
+			tsConfig: { include: ['../test/unit/**/*', '../test/e2e/**/*'] },
 		},
 	},
 });

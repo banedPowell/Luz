@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 
-import { defaultSettings, settingsSchema, themeSchema } from './settings.ts';
+import { defaultSettings, settingsPatchSchema, settingsSchema, themeSchema } from './settings.ts';
 
 describe('themeSchema', () => {
 	it.each(['system', 'light', 'dark'])('accepts %j', (theme) => {
@@ -25,8 +25,8 @@ describe('settingsSchema', () => {
 	});
 
 	it('trims the library path', () => {
-		expect(settingsSchema.parse({ musicLibraryPath: '  D:Music  ' }).musicLibraryPath).toBe(
-			'D:Music',
+		expect(settingsSchema.parse({ musicLibraryPath: '  D:\\Music  ' }).musicLibraryPath).toBe(
+			'D:\\Music',
 		);
 	});
 
@@ -35,6 +35,7 @@ describe('settingsSchema', () => {
 		{ musicLibraryPath: '' },
 		{ musicLibraryPath: '   ' },
 		{ musicLibraryPath: 42 },
+		{ musicLibraryPath: 'Music' },
 	])('rejects %j', (input) => {
 		expect(settingsSchema.safeParse(input).success).toBe(false);
 	});
@@ -48,5 +49,52 @@ describe('defaultSettings', () => {
 	it('uses the system theme and no library path', () => {
 		expect(defaultSettings).toEqual({ theme: 'system' });
 		expect('musicLibraryPath' in defaultSettings).toBe(false);
+	});
+});
+
+describe('settingsPatchSchema', () => {
+	it('accepts an empty patch without applying defaults', () => {
+		expect(settingsPatchSchema.parse({})).toEqual({});
+	});
+
+	it('keeps the given keys only', () => {
+		expect(settingsPatchSchema.parse({ theme: 'light' })).toEqual({ theme: 'light' });
+	});
+
+	it('trims the library path', () => {
+		expect(settingsPatchSchema.parse({ musicLibraryPath: ' /music ' })).toEqual({
+			musicLibraryPath: '/music',
+		});
+	});
+
+	it.each(['/home/me/Music', 'D:\\Music', 'd:/Music', '\\\\nas\\music'])(
+		'accepts the absolute path %j',
+		(musicLibraryPath) => {
+			expect(settingsPatchSchema.parse({ musicLibraryPath })).toEqual({ musicLibraryPath });
+		},
+	);
+
+	it('clears the library path with null', () => {
+		expect(settingsPatchSchema.parse({ musicLibraryPath: null })).toEqual({
+			musicLibraryPath: null,
+		});
+	});
+
+	it.each([
+		{ theme: 'auto' },
+		{ theme: null },
+		{ musicLibraryPath: '' },
+		{ musicLibraryPath: '   ' },
+		{ musicLibraryPath: 42 },
+		{ musicLibraryPath: 'Music' },
+		{ musicLibraryPath: './Music' },
+		{ musicLibraryPath: 'D:Music' },
+		{ volume: 3 },
+	])('rejects %j', (input) => {
+		expect(settingsPatchSchema.safeParse(input).success).toBe(false);
+	});
+
+	it('rejects a non-object', () => {
+		expect(settingsPatchSchema.safeParse(null).success).toBe(false);
 	});
 });
