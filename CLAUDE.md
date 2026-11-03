@@ -13,6 +13,7 @@ Luz is a local-first music library manager: it downloads music with yt-dlp and F
 Read before working:
 
 - [docs/ROADMAP.md](docs/ROADMAP.md): milestones, scope and what is explicitly out of scope.
+- [docs/design/interface-principles.md](docs/design/interface-principles.md): how the interface looks and behaves; read it before touching the UI.
 - [docs/decisions/](docs/decisions/): architecture decisions. Do not contradict one without proposing a new record.
 - [CONTRIBUTING.md](CONTRIBUTING.md): issues, branches, PRs, releases, board.
 - [docs/agents/pitfalls.md](docs/agents/pitfalls.md): traps already met, by topic. Read only the sections your task touches, and add one when you lose time on something the next agent would hit too.
