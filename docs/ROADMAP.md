@@ -37,6 +37,7 @@ It starts as a web app for one person on their own computer, then becomes a self
 - Tracks, albums and artists built from those tags, stored in the database.
 - Browse, search and sort tracks, albums and artists.
 - Rescan detects added, changed and removed files.
+- Library views follow the [interface principles](design/interface-principles.md): table and grid, cassette placeholder for missing covers, quality badge, visible folder and file names.
 
 **Out of scope:** editing tags, downloading.
 **Done when:** pointing Luz at a real music folder gives a faithful, browsable library.
@@ -50,6 +51,7 @@ It starts as a web app for one person on their own computer, then becomes a self
 - Choose format and quality; FFmpeg handles conversion and artwork embedding.
 - Naming templates for files and folders, applied to every download.
 - Downloaded files land in the library like scanned ones.
+- Interface refresh, since downloads need the new shell: DM Sans, three-icon theme switch, inset sidebar with a wider main area and a mobile drawer, a home page, keyboard shortcuts and a "New" badge on recent additions. The rules are in the [interface principles](design/interface-principles.md).
 
 **Out of scope:** sources other than those yt-dlp supports out of the box, metadata providers.
 **Done when:** a YouTube playlist URL ends up as a correctly named, tagged album in the library.
