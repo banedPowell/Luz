@@ -12,9 +12,12 @@ if (error.value) {
 <template>
 	<section v-if="data" class="flex flex-col gap-4" aria-labelledby="album-title">
 		<div class="flex flex-col gap-1">
-			<h2 id="album-title" class="text-xl font-semibold text-highlighted">
-				{{ albumTitle(data.title) }}
-			</h2>
+			<div class="flex flex-wrap items-center gap-2">
+				<h2 id="album-title" class="text-xl font-semibold text-highlighted">
+					{{ albumTitle(data.title) }}
+				</h2>
+				<AlbumQualityBadge :quality="data.quality" />
+			</div>
 			<p class="text-sm text-muted">
 				<ULink :to="`/library/artists/${data.artist.id}`">
 					{{ artistName(data.artist.name) }}

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { AlbumQuality } from './quality.ts';
+
 export const trackSortKeys = ['title', 'artist', 'album', 'year', 'duration'] as const;
 export const albumSortKeys = ['title', 'artist', 'year'] as const;
 export const artistSortKeys = ['name'] as const;
@@ -74,6 +76,8 @@ export interface AlbumSummary {
 	// The latest year among its tracks
 	year: number | null;
 	trackCount: number;
+	// `null` until every track's codec is known (see albumQuality)
+	quality: AlbumQuality | null;
 }
 
 export interface ArtistSummary {
@@ -81,6 +85,26 @@ export interface ArtistSummary {
 	name: string | null;
 	albumCount: number;
 	trackCount: number;
+}
+
+/**
+ * A track with everything the index knows of its file: the audio read with its tags and the
+ * file itself. The audio values stay `null` while `lossless` is, for a track indexed before
+ * they were stored, until the next scan reads it again.
+ */
+export interface TrackDetail extends TrackSummary {
+	// The absolute path: Luz shows the files it manages
+	path: string;
+	genre: string | null;
+	fileSize: number;
+	modifiedAtMs: number;
+	codec: string | null;
+	codecProfile: string | null;
+	lossless: boolean | null;
+	bitrate: number | null;
+	sampleRate: number | null;
+	bitDepth: number | null;
+	channels: number | null;
 }
 
 /** An album with its tracks, by disc then track number. */

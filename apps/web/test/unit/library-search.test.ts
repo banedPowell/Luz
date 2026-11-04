@@ -12,6 +12,7 @@ import {
 } from '../../server/infrastructure/database/library-repository';
 import { applyMigrations, loadMigrations } from '../../server/infrastructure/database/migrations';
 import { searchLibrary } from '../../server/services/library-search';
+import { audioOf } from './support/audio';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
 describe('library search', () => {
@@ -35,6 +36,7 @@ describe('library search', () => {
 			fileSize: 1024,
 			modifiedAtMs: 1_700_000_000_000,
 			tags: trackTagsSchema.parse(tags),
+			audio: audioOf(fileName),
 		};
 	}
 

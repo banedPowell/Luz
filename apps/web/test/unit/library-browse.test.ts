@@ -19,7 +19,9 @@ import {
 	browseTracks,
 	getAlbum,
 	getArtist,
+	getTrack,
 } from '../../server/services/library-browse';
+import { audioOf } from './support/audio';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
 function titles(page: { items: { title: string | null }[] }) {
@@ -47,6 +49,7 @@ describe('library browse', () => {
 			fileSize: 1024,
 			modifiedAtMs: 1_700_000_000_000,
 			tags: trackTagsSchema.parse(tags),
+			audio: audioOf(fileName),
 		});
 	}
 
@@ -220,6 +223,7 @@ describe('library browse', () => {
 			artist: { name: 'Alpha' },
 			year: 2001,
 			trackCount: 3,
+			quality: 'lossless',
 		});
 		expect(titles(byTitle)).toEqual(['Alpha One', 'beta one', 'Beta Two', null]);
 		expect(titles(await albums({ sort: 'year', order: 'desc' }))).toEqual([
@@ -235,6 +239,35 @@ describe('library browse', () => {
 			'Alpha One',
 			null,
 		]);
+	});
+
+	it('gives an album its quality from the codecs of its tracks', async () => {
+		await add('lossless.flac', { album: 'Lossless' });
+		await add('lossless.wav', { album: 'Lossless' });
+		await add('mixed.flac', { album: 'Mixed' });
+		await add('mixed.mp3', { album: 'Mixed' });
+		await add('lossy.opus', { album: 'Lossy' });
+
+		const page = await albums({});
+
+		expect(page.items.map((album) => [album.title, album.quality])).toEqual([
+			['Lossless', 'lossless'],
+			['Lossy', 'mixed'],
+			['Mixed', 'mixed'],
+		]);
+		const [lossless] = page.items;
+		expect(await getAlbum(db, lossless?.id ?? 0)).toMatchObject({ quality: 'lossless' });
+	});
+
+	it('gives no quality to an album with a track indexed before codecs were stored', async () => {
+		const { album } = await add('known.flac', { album: 'Old' });
+		await add('legacy.flac', { album: 'Old' });
+		await db.$client.execute(
+			"update tracks set codec = null, lossless = null where path like '%legacy.flac'",
+		);
+
+		expect((await albums({})).items[0]?.quality).toBeNull();
+		expect((await getAlbum(db, album.id))?.quality).toBeNull();
 	});
 
 	it('lists artists by name with their album and track counts', async () => {
@@ -275,10 +308,45 @@ describe('library browse', () => {
 		]);
 	});
 
-	it('returns nothing for an unknown album or artist', async () => {
+	it('returns a track with its file and audio details', async () => {
+		const { id, album, artist } = await add('detail.flac', {
+			title: 'Echo',
+			artists: ['Alpha'],
+			album: 'Alpha One',
+			genre: 'Ambient',
+			trackNumber: 3,
+		});
+
+		expect(await getTrack(db, id)).toEqual({
+			id,
+			path: path.join(dataDir, 'music', 'detail.flac'),
+			fileName: 'detail.flac',
+			title: 'Echo',
+			artists: 'Alpha',
+			trackNumber: 3,
+			discNumber: null,
+			year: null,
+			genre: 'Ambient',
+			durationMs: null,
+			codec: 'FLAC',
+			codecProfile: null,
+			lossless: true,
+			bitrate: null,
+			sampleRate: null,
+			bitDepth: null,
+			channels: null,
+			fileSize: 1024,
+			modifiedAtMs: 1_700_000_000_000,
+			album,
+			artist,
+		});
+	});
+
+	it('returns nothing for an unknown album, artist or track', async () => {
 		await addLibrary();
 
 		expect(await getAlbum(db, 999)).toBeUndefined();
 		expect(await getArtist(db, 999)).toBeUndefined();
+		expect(await getTrack(db, 999)).toBeUndefined();
 	});
 });

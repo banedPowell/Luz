@@ -76,6 +76,17 @@ export const tracks = sqliteTable(
 		year: integer('year'),
 		genre: text('genre'),
 		durationMs: integer('duration_ms'),
+		// codecName() of @luz/core; null when the file names none
+		codec: text('codec'),
+		// isLosslessCodec() of the codec. Null for a track indexed before the column existed:
+		// the next scan reads it again even if its file did not change
+		lossless: integer('lossless', { mode: 'boolean' }),
+		// The rest of TrackAudio, shown in the track details; null when the file does not say
+		codecProfile: text('codec_profile'),
+		bitrate: integer('bitrate'),
+		sampleRate: integer('sample_rate'),
+		bitDepth: integer('bit_depth'),
+		channels: integer('channels'),
 		// Compared by the rescan to skip files that did not change
 		fileSize: integer('file_size').notNull(),
 		modifiedAtMs: integer('modified_at_ms').notNull(),

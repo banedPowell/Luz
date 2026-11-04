@@ -70,7 +70,10 @@ describe('library search', () => {
 				items: [track(1), track(2, { title: null, fileName: 'untagged.mp3' })],
 				total: 14,
 			},
-			albums: { items: [{ ...bDay, artist: beyonce, year: 2006, trackCount: 2 }], total: 1 },
+			albums: {
+				items: [{ ...bDay, artist: beyonce, year: 2006, trackCount: 2, quality: 'mixed' }],
+				total: 1,
+			},
 			artists: { items: [{ ...beyonce, albumCount: 1, trackCount: 2 }], total: 1 },
 		};
 	});

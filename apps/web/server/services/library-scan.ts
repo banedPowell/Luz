@@ -31,7 +31,8 @@ let running = false;
  * Brings the index up to date with the music library folder of the settings: new files
  * are added, files whose size or modification time changed are read again, and tracks
  * whose file is gone (removed, moved, or outside a new library folder) are removed with
- * the albums and artists they leave empty. Unchanged files are not read. Files are only
+ * the albums and artists they leave empty. Unchanged files are not read, unless their track
+ * was indexed before its codec was stored. Files are only
  * read, never modified. A file whose tags cannot be read is skipped and counted (a changed
  * one leaves the index, its stored tags being stale); the scan goes on.
  */
@@ -66,14 +67,18 @@ async function scan(db: Database, tagReader: TagReader): Promise<ScanSummary> {
 		}
 		const known = indexed.get(file.path);
 		indexed.delete(file.path);
-		if (known && known.fileSize === file.size && known.modifiedAtMs === file.modifiedAtMs) {
+		const changed =
+			!known || known.fileSize !== file.size || known.modifiedAtMs !== file.modifiedAtMs;
+		// A track indexed before codecs were stored is read again once, changed or not
+		if (!changed && known.audioKnown) {
 			summary.unchanged++;
 			continue;
 		}
 		const result = await tagReader.read(file.path);
 		if (!result.ok) {
 			summary.skipped++;
-			if (known) {
+			// An unchanged file keeps the tags it had; only its codec stays unknown
+			if (known && changed) {
 				unreadable.push(file.path);
 			}
 			continue;
@@ -83,6 +88,7 @@ async function scan(db: Database, tagReader: TagReader): Promise<ScanSummary> {
 			fileSize: file.size,
 			modifiedAtMs: file.modifiedAtMs,
 			tags: result.tags,
+			audio: result.audio,
 		};
 		if (known) {
 			await updateTrack(db, track);
