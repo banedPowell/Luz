@@ -51,4 +51,6 @@ Under the `md` breakpoint the sidebar becomes a drawer opened from the top bar. 
 
 ## Later, not now
 
+Editing (v0.4): everything the interface shows becomes editable, from the selection bar and the row menu, with a preview before files change. No edit control appears before it works.
+
 Custom themes and a choice of icon library (after v1.0), accounts and profiles, device profiles, an audio player. Their layout slots are described above; their interface is designed when their milestone starts.
