@@ -13,5 +13,5 @@ const codecsByExtension: Record<string, string> = {
 
 /** What the tag reader would say of a file's audio, guessed from its extension. */
 export function audioOf(filePath: string): TrackAudio {
-	return trackAudioOf(codecsByExtension[path.extname(filePath).toLowerCase()]);
+	return trackAudioOf({ codec: codecsByExtension[path.extname(filePath).toLowerCase()] });
 }

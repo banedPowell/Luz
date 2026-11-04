@@ -3,9 +3,28 @@
  * of the source. Read from the file, like the tags, so a rescan can rebuild it.
  */
 export interface TrackAudio {
-	// `null` when the file does not name its codec
+	// `null` when the file does not name its codec, and for every value the file does not give
 	codec: string | null;
+	// How the codec was used, e.g. "CBR" or "V0" for an MP3
+	codecProfile: string | null;
 	lossless: boolean;
+	// Bits per second, averaged over the file
+	bitrate: number | null;
+	// Hertz
+	sampleRate: number | null;
+	// Bits per sample; only lossless and some AAC files give one
+	bitDepth: number | null;
+	channels: number | null;
+}
+
+/** The audio format as the tag reader reports it (music-metadata's names). */
+export interface AudioFormat {
+	codec?: string;
+	codecProfile?: string;
+	bitrate?: number;
+	sampleRate?: number;
+	bitsPerSample?: number;
+	numberOfChannels?: number;
 }
 
 // The names music-metadata gives the lossy codecs Luz reads, shortened to what users know.
@@ -38,10 +57,23 @@ export function isLosslessCodec(codec: string | null): boolean {
 	return losslessCodecs.some((lossless) => lossless === codec);
 }
 
-/** The audio of a track from the codec its file reports. */
-export function trackAudioOf(codec: string | undefined): TrackAudio {
-	const name = codecName(codec);
-	return { codec: name, lossless: isLosslessCodec(name) };
+// Files hold 0, fractions or garbage: keep a positive whole number, or nothing
+function measure(value: number | undefined): number | null {
+	return value !== undefined && Number.isFinite(value) && value > 0 ? Math.round(value) : null;
+}
+
+/** The audio of a track from the format its file reports. */
+export function trackAudioOf(format: AudioFormat): TrackAudio {
+	const codec = codecName(format.codec);
+	return {
+		codec,
+		codecProfile: format.codecProfile?.trim() || null,
+		lossless: isLosslessCodec(codec),
+		bitrate: measure(format.bitrate),
+		sampleRate: measure(format.sampleRate),
+		bitDepth: measure(format.bitsPerSample),
+		channels: measure(format.numberOfChannels),
+	};
 }
 
 export const albumQualities = ['lossless', 'mixed'] as const;

@@ -53,14 +53,17 @@ function countOf(group: SearchGroup<unknown>, word: string): string {
 				<li
 					v-for="track in results.tracks.items"
 					:key="track.id"
-					class="flex flex-col py-2"
+					class="flex items-center gap-2 py-2"
 				>
-					<ULink :to="`/library/albums/${track.album.id}`" class="font-medium">
-						{{ trackTitle(track) }}
-					</ULink>
-					<span class="text-sm text-muted">
-						{{ trackArtists(track) }} · {{ albumTitle(track.album.title) }}
-					</span>
+					<div class="flex min-w-0 flex-1 flex-col">
+						<ULink :to="`/library/albums/${track.album.id}`" class="font-medium">
+							{{ trackTitle(track) }}
+						</ULink>
+						<span class="text-sm text-muted">
+							{{ trackArtists(track) }} · {{ albumTitle(track.album.title) }}
+						</span>
+					</div>
+					<TrackMenu :track="track" />
 				</li>
 			</ul>
 		</section>

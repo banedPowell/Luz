@@ -4,13 +4,14 @@ import type {
 	ArtistDetail,
 	ArtistSummary,
 	LibraryPage,
+	TrackDetail,
 	TrackSummary,
 } from '@luz/core';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { NuxtPage, UApp } from '#components';
-import { getQuery } from 'h3';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { defineComponent, h } from 'vue';
+import { createError, getQuery } from 'h3';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { defineComponent, h, nextTick } from 'vue';
 
 // The sort select opens a popover, which needs the providers of UApp
 const LibraryPages = defineComponent({
@@ -45,6 +46,7 @@ let albumPage: LibraryPage<AlbumSummary>;
 let artistPage: LibraryPage<ArtistSummary>;
 let album: AlbumDetail;
 let artist: ArtistDetail;
+let detail: TrackDetail | undefined;
 const queries: Record<string, unknown>[] = [];
 
 registerEndpoint('/api/settings', {
@@ -62,6 +64,56 @@ registerEndpoint('/api/library/albums', { method: 'GET', handler: () => albumPag
 registerEndpoint('/api/library/artists', { method: 'GET', handler: () => artistPage });
 registerEndpoint('/api/library/albums/10', { method: 'GET', handler: () => album });
 registerEndpoint('/api/library/artists/1', { method: 'GET', handler: () => artist });
+registerEndpoint('/api/library/tracks/1', {
+	method: 'GET',
+	handler: () => {
+		if (!detail) {
+			throw createError({ statusCode: 404, message: 'No such track' });
+		}
+		return detail;
+	},
+});
+
+function trackDetail(overrides: Partial<TrackDetail> = {}): TrackDetail {
+	return {
+		...track(1),
+		path: '/music/Alpha/Alpha One/01 Track 1.mp3',
+		fileName: '01 Track 1.mp3',
+		genre: null,
+		fileSize: 4_234_567,
+		modifiedAtMs: 1_700_000_000_000,
+		codec: 'MP3',
+		codecProfile: 'V0',
+		lossless: false,
+		bitrate: 245_872,
+		sampleRate: 44_100,
+		bitDepth: null,
+		channels: 2,
+		...overrides,
+	};
+}
+
+// The menu and the window open in a portal outside the mounted page
+async function openDetails(wrapper: Awaited<ReturnType<typeof mountAt>>, title: string) {
+	await wrapper.find(`button[aria-label="More actions for ${title}"]`).trigger('click');
+	await vi.waitFor(() => {
+		const item = [...document.querySelectorAll('[role="menuitem"]')].find(
+			(element) => element.textContent?.trim() === 'Show details',
+		);
+		if (!(item instanceof HTMLElement)) {
+			throw new Error('The menu is not open');
+		}
+		item.click();
+	});
+	await nextTick();
+	return vi.waitFor(() => {
+		const dialog = document.querySelector('[role="dialog"]');
+		if (!dialog?.textContent?.includes('File')) {
+			throw new Error('The details are not loaded');
+		}
+		return dialog;
+	});
+}
 
 async function mountAt(route: string) {
 	await useSettings().load();
@@ -109,6 +161,7 @@ describe('library views', () => {
 			],
 		};
 		artist = { ...alpha, albumCount: 1, trackCount: 3, albums: [album] };
+		detail = trackDetail();
 	});
 
 	it('lists tracks with their artist and album, naming untagged values', async () => {
@@ -253,5 +306,73 @@ describe('library views', () => {
 
 		const views = wrapper.find('nav[aria-label="Library views"]');
 		expect(views.find('[aria-current="page"]').text()).toBe('Albums');
+	});
+
+	it('shows the audio, tags and file of a track from its row menu', async () => {
+		const wrapper = await mountAt('/library');
+
+		const dialog = await openDetails(wrapper, 'Track 1');
+
+		const text = dialog.textContent ?? '';
+		expect(text).toContain('Track details');
+		expect(text).toContain('MP3 (V0)');
+		expect(text).toContain('Lossy');
+		expect(text).toContain('246 kbps');
+		expect(text).toContain('44.1 kHz');
+		expect(text).toContain('Stereo');
+		expect(text).toContain('/music/Alpha/Alpha One/01 Track 1.mp3');
+		expect(text).toContain('4.2 MB');
+		// A lossy file has no bit depth, and an untagged genre says so
+		expect(text).not.toContain('Bit depth');
+		expect(text).toMatch(/Genre\s*Not tagged/);
+	});
+
+	it('opens the details from the tracks of an album too', async () => {
+		detail = trackDetail({ codec: 'FLAC', codecProfile: null, lossless: true, bitDepth: 24 });
+		const wrapper = await mountAt('/library/albums/10');
+
+		const dialog = await openDetails(wrapper, 'Track 1');
+
+		expect(dialog.textContent).toContain('Lossless');
+		expect(dialog.textContent).toContain('24-bit');
+	});
+
+	it('says when the audio of a track is read at the next scan', async () => {
+		detail = trackDetail({
+			codec: null,
+			codecProfile: null,
+			lossless: null,
+			bitrate: null,
+			sampleRate: null,
+			channels: null,
+		});
+		const wrapper = await mountAt('/library');
+
+		const dialog = await openDetails(wrapper, 'Track 1');
+
+		expect(dialog.textContent).toContain('read at the next scan');
+		expect(dialog.textContent).toMatch(/Format\s*Unknown/);
+	});
+
+	it('says when a track is no longer in the library', async () => {
+		detail = undefined;
+		const wrapper = await mountAt('/library');
+		await wrapper.find('button[aria-label="More actions for Track 1"]').trigger('click');
+
+		await vi.waitFor(() => {
+			const item = [...document.querySelectorAll('[role="menuitem"]')].find(
+				(element) => element.textContent?.trim() === 'Show details',
+			);
+			if (!(item instanceof HTMLElement)) {
+				throw new Error('The menu is not open');
+			}
+			item.click();
+		});
+
+		await vi.waitFor(() => {
+			expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+				'no longer in the library',
+			);
+		});
 	});
 });

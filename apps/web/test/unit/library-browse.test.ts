@@ -19,6 +19,7 @@ import {
 	browseTracks,
 	getAlbum,
 	getArtist,
+	getTrack,
 } from '../../server/services/library-browse';
 import { audioOf } from './support/audio';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
@@ -307,10 +308,45 @@ describe('library browse', () => {
 		]);
 	});
 
-	it('returns nothing for an unknown album or artist', async () => {
+	it('returns a track with its file and audio details', async () => {
+		const { id, album, artist } = await add('detail.flac', {
+			title: 'Echo',
+			artists: ['Alpha'],
+			album: 'Alpha One',
+			genre: 'Ambient',
+			trackNumber: 3,
+		});
+
+		expect(await getTrack(db, id)).toEqual({
+			id,
+			path: path.join(dataDir, 'music', 'detail.flac'),
+			fileName: 'detail.flac',
+			title: 'Echo',
+			artists: 'Alpha',
+			trackNumber: 3,
+			discNumber: null,
+			year: null,
+			genre: 'Ambient',
+			durationMs: null,
+			codec: 'FLAC',
+			codecProfile: null,
+			lossless: true,
+			bitrate: null,
+			sampleRate: null,
+			bitDepth: null,
+			channels: null,
+			fileSize: 1024,
+			modifiedAtMs: 1_700_000_000_000,
+			album,
+			artist,
+		});
+	});
+
+	it('returns nothing for an unknown album, artist or track', async () => {
 		await addLibrary();
 
 		expect(await getAlbum(db, 999)).toBeUndefined();
 		expect(await getArtist(db, 999)).toBeUndefined();
+		expect(await getTrack(db, 999)).toBeUndefined();
 	});
 });

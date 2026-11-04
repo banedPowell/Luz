@@ -10,7 +10,13 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { trackTagsSchema, type ScanSummary, type TrackAudio, type TrackTags } from '@luz/core';
+import {
+	trackAudioOf,
+	trackTagsSchema,
+	type ScanSummary,
+	type TrackAudio,
+	type TrackTags,
+} from '@luz/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
@@ -70,7 +76,15 @@ function snapshot(filePath: string) {
 
 // What migration 0003 leaves: the rows it found have no codec yet
 async function forgetCodecs(db: Database) {
-	await db.update(tracks).set({ codec: null, lossless: null });
+	await db.update(tracks).set({
+		codec: null,
+		lossless: null,
+		codecProfile: null,
+		bitrate: null,
+		sampleRate: null,
+		bitDepth: null,
+		channels: null,
+	});
 }
 
 async function scanError(promise: Promise<unknown>): Promise<ScanError> {
@@ -154,13 +168,13 @@ describe('scanLibrary', () => {
 		const flac = file('Album/01.flac');
 		const aac = file('Album/02.m4a');
 		const alac = file('Album/03.m4a');
-		reader.audio.set(alac, { codec: 'ALAC', lossless: true });
+		reader.audio.set(alac, trackAudioOf({ codec: 'ALAC' }));
 
 		await scanLibrary(db, reader);
 
 		expect(await findTrackByPath(db, flac)).toMatchObject({ codec: 'FLAC', lossless: true });
 		expect(await findTrackByPath(db, aac)).toMatchObject({ codec: 'AAC', lossless: false });
-		expect(await findTrackByPath(db, alac)).toMatchObject({ codec: 'ALAC', lossless: true });
+		expect(await findTrackByPath(db, alac)).toMatchObject(trackAudioOf({ codec: 'ALAC' }));
 	});
 
 	it('skips and counts unreadable files, and keeps scanning', async () => {
@@ -227,7 +241,7 @@ describe('scanLibrary', () => {
 			const changed = indexedFile('Album/01.m4a');
 			await indexedScan();
 			writeFileSync(changed, 'reencoded audio');
-			reader.audio.set(changed, { codec: 'ALAC', lossless: true });
+			reader.audio.set(changed, trackAudioOf({ codec: 'ALAC' }));
 
 			expect(await scanLibrary(db, reader)).toEqual(summary({ updated: 1 }));
 			expect(await findTrackByPath(db, changed)).toMatchObject({

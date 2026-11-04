@@ -38,7 +38,7 @@ export function createTagReader(): TagReader {
 				const parsed = trackTagsSchema.safeParse(toTrackTags(common, format));
 				return parsed.success
 					? // The codec, not the extension: ALAC and AAC both come as .m4a
-						{ ok: true, tags: parsed.data, audio: trackAudioOf(format.codec) }
+						{ ok: true, tags: parsed.data, audio: trackAudioOf(format) }
 					: {
 							ok: false,
 							error: {

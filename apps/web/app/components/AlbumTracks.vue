@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatDuration, type TrackSummary } from '@luz/core';
 import type { TableColumn } from '@nuxt/ui';
+import { h } from 'vue';
 
 const props = defineProps<{
 	tracks: TrackSummary[];
@@ -30,6 +31,11 @@ const columns: TableColumn<TrackSummary>[] = [
 		header: 'Duration',
 		meta: { class: { th: 'text-end', td: 'text-end tabular-nums' } },
 	},
+	{
+		id: 'actions',
+		header: () => h('span', { class: 'sr-only' }, 'Actions'),
+		meta: { class: { th: 'w-px px-1', td: 'w-px px-1 py-0 text-end' } },
+	},
 ];
 </script>
 
@@ -42,6 +48,9 @@ const columns: TableColumn<TrackSummary>[] = [
 		<template #artist-cell="{ row }">{{ trackArtists(row.original) }}</template>
 		<template #duration-cell="{ row }">
 			{{ formatDuration(row.original.durationMs) ?? '' }}
+		</template>
+		<template #actions-cell="{ row }">
+			<TrackMenu :track="row.original" />
 		</template>
 	</UTable>
 </template>

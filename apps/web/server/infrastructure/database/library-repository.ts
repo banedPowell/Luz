@@ -14,6 +14,7 @@ import {
 	type SortOrder,
 	type TrackSortKey,
 	type TrackAudio,
+	type TrackDetail,
 	type TrackSummary,
 	type TrackTags,
 } from '@luz/core';
@@ -61,6 +62,11 @@ export interface LibraryTrack {
 	codec: string | null;
 	// `null` until the track is read again by a scan, for one indexed before codecs were stored
 	lossless: boolean | null;
+	codecProfile: string | null;
+	bitrate: number | null;
+	sampleRate: number | null;
+	bitDepth: number | null;
+	channels: number | null;
 	fileSize: number;
 	modifiedAtMs: number;
 	album: { id: number; title: string | null };
@@ -97,10 +103,17 @@ export async function updateTrack(
 	return updated ? requireTrack(db, file.path) : undefined;
 }
 
-export async function findTrackByPath(
-	db: Database,
-	path: string,
-): Promise<LibraryTrack | undefined> {
+export function findTrackByPath(db: Database, path: string): Promise<LibraryTrack | undefined> {
+	return findTrackWhere(db, eq(tracks.path, path));
+}
+
+/** A track with everything the index knows of its file, or `undefined` if there is none with this id. */
+export async function findTrack(db: Database, id: number): Promise<TrackDetail | undefined> {
+	const track = await findTrackWhere(db, eq(tracks.id, id));
+	return track && { ...track, fileName: basename(track.path) };
+}
+
+async function findTrackWhere(db: Database, where: SQL): Promise<LibraryTrack | undefined> {
 	const [row] = await db
 		.select({
 			track: tracks,
@@ -110,7 +123,7 @@ export async function findTrackByPath(
 		.from(tracks)
 		.innerJoin(albums, eq(albums.id, tracks.albumId))
 		.innerJoin(artists, eq(artists.id, albums.artistId))
-		.where(eq(tracks.path, path));
+		.where(where);
 	if (!row) {
 		return undefined;
 	}
@@ -202,6 +215,11 @@ async function toTrackRow(tx: Transaction, file: TrackFile): Promise<typeof trac
 		durationMs: tags.durationMs ?? null,
 		codec: file.audio.codec,
 		lossless: file.audio.lossless,
+		codecProfile: file.audio.codecProfile,
+		bitrate: file.audio.bitrate,
+		sampleRate: file.audio.sampleRate,
+		bitDepth: file.audio.bitDepth,
+		channels: file.audio.channels,
 		fileSize: file.fileSize,
 		modifiedAtMs: file.modifiedAtMs,
 	};

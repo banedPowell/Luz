@@ -87,6 +87,26 @@ export interface ArtistSummary {
 	trackCount: number;
 }
 
+/**
+ * A track with everything the index knows of its file: the audio read with its tags and the
+ * file itself. The audio values stay `null` while `lossless` is, for a track indexed before
+ * they were stored, until the next scan reads it again.
+ */
+export interface TrackDetail extends TrackSummary {
+	// The absolute path: Luz shows the files it manages
+	path: string;
+	genre: string | null;
+	fileSize: number;
+	modifiedAtMs: number;
+	codec: string | null;
+	codecProfile: string | null;
+	lossless: boolean | null;
+	bitrate: number | null;
+	sampleRate: number | null;
+	bitDepth: number | null;
+	channels: number | null;
+}
+
 /** An album with its tracks, by disc then track number. */
 export interface AlbumDetail extends AlbumSummary {
 	tracks: TrackSummary[];

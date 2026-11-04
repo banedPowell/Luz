@@ -6,6 +6,7 @@ import type {
 	ArtistListQuery,
 	ArtistSummary,
 	LibraryPage,
+	TrackDetail,
 	TrackListQuery,
 	TrackSummary,
 } from '@luz/core';
@@ -17,6 +18,7 @@ import {
 	countTracks,
 	findAlbum,
 	findArtist,
+	findTrack,
 	listAlbums,
 	listArtists,
 	listTracks,
@@ -74,4 +76,8 @@ export function getAlbum(db: Database, id: number): Promise<AlbumDetail | undefi
 
 export function getArtist(db: Database, id: number): Promise<ArtistDetail | undefined> {
 	return findArtist(db, id);
+}
+
+export function getTrack(db: Database, id: number): Promise<TrackDetail | undefined> {
+	return findTrack(db, id);
 }

@@ -28,7 +28,7 @@ describe('codecName', () => {
 describe('trackAudioOf', () => {
 	// WAV and AIFF hold PCM; ALAC and AAC share the .m4a extension
 	it.each(['FLAC', 'ALAC', 'PCM'])('counts %s as lossless', (codec) => {
-		expect(trackAudioOf(codec)).toEqual({ codec, lossless: true });
+		expect(trackAudioOf({ codec })).toMatchObject({ codec, lossless: true });
 	});
 
 	it.each([
@@ -37,12 +37,52 @@ describe('trackAudioOf', () => {
 		['Vorbis I', 'Vorbis'],
 		['Opus', 'Opus'],
 	])('counts %s as lossy', (codec, name) => {
-		expect(trackAudioOf(codec)).toEqual({ codec: name, lossless: false });
+		expect(trackAudioOf({ codec })).toMatchObject({ codec: name, lossless: false });
 	});
 
 	it('counts an unknown codec as lossy', () => {
-		expect(trackAudioOf(undefined)).toEqual({ codec: null, lossless: false });
+		expect(trackAudioOf({})).toMatchObject({ codec: null, lossless: false });
 		expect(isLosslessCodec('Something new')).toBe(false);
+	});
+
+	it('keeps the measures of the format, rounded', () => {
+		expect(
+			trackAudioOf({
+				codec: 'MPEG 1 Layer 3',
+				codecProfile: 'V0',
+				bitrate: 245_871.6,
+				sampleRate: 44_100,
+				numberOfChannels: 2,
+			}),
+		).toEqual({
+			codec: 'MP3',
+			codecProfile: 'V0',
+			lossless: false,
+			bitrate: 245_872,
+			sampleRate: 44_100,
+			bitDepth: null,
+			channels: 2,
+		});
+	});
+
+	it('drops measures a file cannot hold', () => {
+		expect(
+			trackAudioOf({
+				codecProfile: ' ',
+				bitrate: 0,
+				sampleRate: Number.NaN,
+				bitsPerSample: -16,
+				numberOfChannels: Number.POSITIVE_INFINITY,
+			}),
+		).toEqual({
+			codec: null,
+			codecProfile: null,
+			lossless: false,
+			bitrate: null,
+			sampleRate: null,
+			bitDepth: null,
+			channels: null,
+		});
 	});
 });
 

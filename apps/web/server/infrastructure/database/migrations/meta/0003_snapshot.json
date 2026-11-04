@@ -1,7 +1,7 @@
 {
 	"version": "6",
 	"dialect": "sqlite",
-	"id": "6ea09536-b06a-4866-8d88-71222e8acf11",
+	"id": "9418321b-611e-4724-bfcf-8c87117fcb31",
 	"prevId": "9dde51e6-330f-43f0-9dc4-708bcd57850a",
 	"tables": {
 		"albums": {
@@ -238,6 +238,41 @@
 				},
 				"lossless": {
 					"name": "lossless",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"codec_profile": {
+					"name": "codec_profile",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"bitrate": {
+					"name": "bitrate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"sample_rate": {
+					"name": "sample_rate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"bit_depth": {
+					"name": "bit_depth",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"channels": {
+					"name": "channels",
 					"type": "integer",
 					"primaryKey": false,
 					"notNull": false,
