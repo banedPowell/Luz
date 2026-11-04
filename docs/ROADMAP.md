@@ -61,6 +61,8 @@ It starts as a web app for one person on their own computer, then becomes a self
 **Goal:** a clean library.
 
 - Edit metadata of one or many tracks, albums and artists; changes are written to the files.
+- Everything the interface shows is editable: title, artist, album artist, album, year, genre, track and disc number, cover, and lyrics and comment if the tag reader exposes them. Edits plug into the selection bar and the row menu.
+- Renaming files and folders after an edit happens on request only, with a before and after preview.
 - Artwork: view, replace, embed.
 - Featured artists handling rules (title, metadata or both).
 - Duplicate detection before and after download.
