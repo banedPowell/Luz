@@ -53,7 +53,7 @@ function scanButton(wrapper: Awaited<ReturnType<typeof mountPage>>) {
 
 describe('library page', () => {
 	beforeEach(() => {
-		stored = { theme: 'system', musicLibraryPath: '/music' };
+		stored = { musicLibraryPath: '/music' };
 		scanResult = { added: 2, updated: 1, removed: 3, unchanged: 4, skipped: 1 };
 		gate = undefined;
 		indexed = [];
@@ -61,7 +61,7 @@ describe('library page', () => {
 	});
 
 	it('links to the settings when no folder is set', async () => {
-		stored = { theme: 'system' };
+		stored = {};
 
 		const wrapper = await mountPage();
 

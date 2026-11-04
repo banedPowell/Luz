@@ -42,7 +42,7 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 - **orm.drizzle.team documents the 1.0 RC**; the installed 0.45 sometimes differs. Check the page version or the types in `node_modules`.
 - **libSQL's native binary is missing from `.output`** without `nitro.externals.traceInclude` (computed `require`). Only the build platform's binary is installed: build where the server runs.
 - **`NUXT_*` variables go through destr**: `NUXT_DATA_DIR=123` arrives as a number, and the Zod schema rejects it at startup. The `.env` file is read by the Nuxt CLI only, never by `node .output/server/index.mjs`.
-- **Unknown routes go through the router** (`experimental.early404` off): plugins run twice on a 404, hence two `set-cookie luz-color-mode` headers (#23).
+- **Unknown routes go through the router** (`experimental.early404` off): plugins run twice on a 404 (#23): a plugin with a side effect, such as setting a cookie, repeats it.
 - **`curl` on an error route returns JSON** unless it sends `Accept: text/html`.
 - **Never display an error's `statusText` or `message`**: a 404's `statusText` contains the path, and other messages can come from the server.
 

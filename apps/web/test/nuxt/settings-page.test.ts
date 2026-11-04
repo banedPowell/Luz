@@ -41,17 +41,30 @@ async function mountPage() {
 
 describe('settings page', () => {
 	beforeEach(() => {
-		stored = { theme: 'dark', musicLibraryPath: '/music' };
+		stored = { musicLibraryPath: '/music' };
+		useColorMode().preference = 'dark';
 		getFails = false;
 		patches.length = 0;
 		clearNuxtState('settings');
 	});
 
-	it('shows the saved settings', async () => {
+	it('shows the saved settings and the theme of this browser', async () => {
 		const wrapper = await mountPage();
 
 		expect(wrapper.find('input').element.value).toBe('/music');
 		expect(wrapper.text()).toContain('Dark');
+	});
+
+	// A browser preference, kept in the color-mode cookie (ADR 0006)
+	it('keeps the theme out of the saved form', async () => {
+		const wrapper = await mountPage();
+
+		expect(wrapper.find('form').text()).not.toContain('Theme');
+		await wrapper.find('form').trigger('submit');
+
+		await vi.waitFor(() => {
+			expect(patches).toEqual([{ musicLibraryPath: '/music' }]);
+		});
 	});
 
 	it('labels both fields', async () => {
@@ -82,7 +95,7 @@ describe('settings page', () => {
 		await wrapper.find('form').trigger('submit');
 
 		await vi.waitFor(() => {
-			expect(patches).toEqual([{ theme: 'dark', musicLibraryPath: null }]);
+			expect(patches).toEqual([{ musicLibraryPath: null }]);
 		});
 		await vi.waitFor(() => {
 			expect(document.body.textContent).toContain('Settings saved');

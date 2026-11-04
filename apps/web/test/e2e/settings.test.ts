@@ -22,20 +22,21 @@ describe('settings API', async () => {
 	});
 
 	it('returns the defaults on an empty data directory', async () => {
-		expect(await $fetch<Settings>('/api/settings')).toEqual({ theme: 'system' });
+		expect(await $fetch<Settings>('/api/settings')).toEqual({});
 	});
 
 	it('updates the settings and returns them', async () => {
 		const updated = await $fetch<Settings>('/api/settings', {
 			method: 'PATCH',
-			body: { theme: 'dark', musicLibraryPath: ' /music ' },
+			body: { musicLibraryPath: ' /music ' },
 		});
 
-		expect(updated).toEqual({ theme: 'dark', musicLibraryPath: '/music' });
+		expect(updated).toEqual({ musicLibraryPath: '/music' });
 		expect(await $fetch<Settings>('/api/settings')).toEqual(updated);
 	});
 
-	it.each([{ theme: 'sepia' }, { musicLibraryPath: 'relative/music' }, { volume: 3 }])(
+	// The theme is a browser preference, not a setting (ADR 0006)
+	it.each([{ theme: 'dark' }, { musicLibraryPath: 'relative/music' }, { volume: 3 }])(
 		'rejects the invalid patch %j with a 400',
 		async (body) => {
 			const response = await fetch('/api/settings', {
@@ -45,18 +46,18 @@ describe('settings API', async () => {
 			});
 
 			expect(response.status).toBe(400);
-			expect(await $fetch<Settings>('/api/settings')).toEqual({
-				theme: 'dark',
-				musicLibraryPath: '/music',
-			});
+			expect(await $fetch<Settings>('/api/settings')).toEqual({ musicLibraryPath: '/music' });
 		},
 	);
 
-	it('renders pages in the stored theme and hands it to the color-mode cookie', async () => {
-		const response = await fetch('/settings');
+	it('leaves the theme to the color-mode cookie and never sets it', async () => {
+		const response = await fetch('/settings', { headers: { cookie: 'luz-color-mode=dark' } });
 
-		expect(response.headers.get('set-cookie')).toMatch(/luz-color-mode=dark/);
-		expect(await response.text()).toContain('/music');
+		expect(response.headers.get('set-cookie')).toBeNull();
+		const html = await response.text();
+		// The color-mode head script applies the cookie's theme before the first paint
+		expect(html).toContain('luz-color-mode');
+		expect(html).toContain('/music');
 	});
 
 	it('keeps the settings after a server restart on the same database', async () => {
@@ -68,6 +69,6 @@ describe('settings API', async () => {
 		await stopServer();
 		await startServer({ env });
 
-		expect(await $fetch<Settings>('/api/settings')).toEqual({ theme: 'dark' });
+		expect(await $fetch<Settings>('/api/settings')).toEqual({});
 	});
 });

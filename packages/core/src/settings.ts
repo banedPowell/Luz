@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+// A preference of each browser, kept in the colour-mode cookie rather than in the settings (ADR 0006)
 export const themes = ['system', 'light', 'dark'] as const;
 
 export const themeSchema = z.enum(themes);
@@ -17,7 +18,6 @@ const musicLibraryPathSchema = z
 	.regex(absolutePath, 'Use an absolute path, such as /home/me/Music or D:\\Music');
 
 export const settingsSchema = z.object({
-	theme: themeSchema.default('system'),
 	// Absent until the user picks a folder: there is no sensible default library location
 	musicLibraryPath: musicLibraryPathSchema.optional(),
 });
@@ -32,7 +32,6 @@ export const defaultSettings: Settings = settingsSchema.parse({});
  * Unknown keys are rejected rather than silently dropped.
  */
 export const settingsPatchSchema = z.strictObject({
-	theme: themeSchema.optional(),
 	musicLibraryPath: musicLibraryPathSchema.nullable().optional(),
 });
 

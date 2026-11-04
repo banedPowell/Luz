@@ -10,8 +10,8 @@ export default defineNuxtConfig({
 	modules: ['@nuxt/ui'],
 	css: ['~/assets/css/main.css'],
 	colorMode: {
-		// A cookie rather than localStorage: the server sets it from the stored theme, and the
-		// color-mode head script reads it before the first paint (app/plugins/settings.server.ts)
+		// A cookie rather than localStorage: the server reads it to render the page in the chosen
+		// theme, so there is no flash. The theme is stored nowhere else (ADR 0006).
 		storage: 'cookie',
 		storageKey: colorModeCookie,
 	},

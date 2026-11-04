@@ -9,10 +9,10 @@ const DefaultLayout = defineComponent({
 	render: () => h(UApp, null, () => h(NuxtLayout, null, () => h('p', 'Page content'))),
 });
 
-// The theme menu in the sidebar footer reads the saved settings
+// Pages may load the settings; the theme menu no longer does (ADR 0006)
 registerEndpoint('/api/settings', {
 	method: 'GET',
-	handler: (): Settings => ({ theme: 'system' }),
+	handler: (): Settings => ({}),
 });
 
 const focusable =

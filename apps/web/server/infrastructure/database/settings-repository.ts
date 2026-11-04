@@ -13,7 +13,6 @@ export async function ensureSettings(db: Database): Promise<void> {
 		.insert(settings)
 		.values({
 			id: settingsRowId,
-			theme: defaultSettings.theme,
 			musicLibraryPath: defaultSettings.musicLibraryPath ?? null,
 		})
 		.onConflictDoNothing();
@@ -29,9 +28,6 @@ export async function readSettings(db: Database): Promise<Settings> {
 
 export async function writeSettings(db: Database, patch: SettingsPatch): Promise<Settings> {
 	const changes: Partial<typeof settings.$inferInsert> = {};
-	if (patch.theme !== undefined) {
-		changes.theme = patch.theme;
-	}
 	if (patch.musicLibraryPath !== undefined) {
 		changes.musicLibraryPath = patch.musicLibraryPath;
 	}
@@ -52,7 +48,5 @@ export async function writeSettings(db: Database, patch: SettingsPatch): Promise
 
 // A null column becomes an absent key, as in the core schema
 function toSettings(row: typeof settings.$inferSelect): Settings {
-	return row.musicLibraryPath === null
-		? { theme: row.theme }
-		: { theme: row.theme, musicLibraryPath: row.musicLibraryPath };
+	return row.musicLibraryPath === null ? {} : { musicLibraryPath: row.musicLibraryPath };
 }
