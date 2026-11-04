@@ -85,8 +85,15 @@ describe('library views', () => {
 			}),
 		]);
 		albumPage = pageOf([
-			{ ...alphaOne, artist: alpha, year: 2001, trackCount: 3 },
-			{ id: 11, title: null, artist: { id: 2, name: null }, year: null, trackCount: 1 },
+			{ ...alphaOne, artist: alpha, year: 2001, trackCount: 3, quality: 'lossless' },
+			{
+				id: 11,
+				title: null,
+				artist: { id: 2, name: null },
+				year: null,
+				trackCount: 1,
+				quality: 'mixed',
+			},
 		]);
 		artistPage = pageOf([{ ...alpha, albumCount: 1, trackCount: 3 }]);
 		album = {
@@ -94,6 +101,7 @@ describe('library views', () => {
 			artist: alpha,
 			year: 2001,
 			trackCount: 3,
+			quality: 'lossless',
 			tracks: [
 				track(1),
 				track(2),
@@ -189,6 +197,26 @@ describe('library views', () => {
 		expect(wrapper.find('a[href="/library/artists/2"]').text()).toBe('Unknown artist');
 	});
 
+	it('shows the quality of each album in the list', async () => {
+		const wrapper = await mountAt('/library/albums');
+
+		const rows = wrapper.findAll('tbody tr').map((row) => row.text());
+		expect(rows[0]).toContain('Lossless');
+		expect(rows[1]).toContain('Mixed');
+	});
+
+	it('shows no quality badge while an album has tracks of unknown codec', async () => {
+		albumPage = pageOf([
+			{ ...alphaOne, artist: alpha, year: 2001, trackCount: 3, quality: null },
+		]);
+
+		const wrapper = await mountAt('/library/albums');
+
+		const row = wrapper.find('tbody tr').text();
+		expect(row).not.toContain('Lossless');
+		expect(row).not.toContain('Mixed');
+	});
+
 	it('lists artists with their counts', async () => {
 		const wrapper = await mountAt('/library/artists');
 
@@ -200,6 +228,9 @@ describe('library views', () => {
 		const wrapper = await mountAt('/library/albums/10');
 
 		expect(wrapper.find('h2#album-title').text()).toBe('Alpha One');
+		expect(wrapper.find('h2#album-title').element.parentElement?.textContent).toContain(
+			'Lossless',
+		);
 		expect(wrapper.text()).toContain('2001');
 		const rows = wrapper.findAll('tbody tr').map((row) => row.text());
 		expect(rows[0]).toContain('1.1');
@@ -213,6 +244,7 @@ describe('library views', () => {
 		expect(wrapper.find('h2#artist-name').text()).toBe('Alpha');
 		expect(wrapper.text()).toContain('1 album · 3 tracks');
 		expect(wrapper.find('h3 a[href="/library/albums/10"]').text()).toBe('Alpha One');
+		expect(wrapper.find('h3').element.parentElement?.textContent).toContain('Lossless');
 		expect(wrapper.findAll('tbody tr')).toHaveLength(3);
 	});
 

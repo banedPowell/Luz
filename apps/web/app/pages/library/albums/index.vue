@@ -17,6 +17,12 @@ const columns: TableColumn<AlbumSummary>[] = [
 	{ id: 'artist', ...sortable('Artist') },
 	{ id: 'year', ...sortable('Year') },
 	{
+		id: 'quality',
+		header: 'Quality',
+		// Hidden on narrow screens like the track count; the album page still shows it
+		meta: { class: { th: 'hidden sm:table-cell', td: 'hidden sm:table-cell' } },
+	},
+	{
 		id: 'tracks',
 		header: 'Tracks',
 		meta: {
@@ -59,6 +65,9 @@ const columns: TableColumn<AlbumSummary>[] = [
 				</ULink>
 			</template>
 			<template #year-cell="{ row }">{{ row.original.year ?? '' }}</template>
+			<template #quality-cell="{ row }">
+				<AlbumQualityBadge :quality="row.original.quality" />
+			</template>
 			<template #tracks-cell="{ row }">{{ row.original.trackCount }}</template>
 		</UTable>
 	</LibraryList>

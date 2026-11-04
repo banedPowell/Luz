@@ -25,10 +25,15 @@ if (error.value) {
 			class="flex flex-col gap-2"
 			:aria-labelledby="`album-${album.id}`"
 		>
-			<h3 :id="`album-${album.id}`" class="font-semibold text-highlighted">
-				<ULink :to="`/library/albums/${album.id}`">{{ albumTitle(album.title) }}</ULink>
-				<span v-if="album.year" class="font-normal text-muted"> · {{ album.year }}</span>
-			</h3>
+			<div class="flex flex-wrap items-center gap-2">
+				<h3 :id="`album-${album.id}`" class="font-semibold text-highlighted">
+					<ULink :to="`/library/albums/${album.id}`">{{ albumTitle(album.title) }}</ULink>
+					<span v-if="album.year" class="font-normal text-muted">
+						· {{ album.year }}</span
+					>
+				</h3>
+				<AlbumQualityBadge :quality="album.quality" />
+			</div>
 			<AlbumTracks :tracks="album.tracks" :caption="`Tracks of ${albumTitle(album.title)}`" />
 		</section>
 	</section>
