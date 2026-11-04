@@ -4,3 +4,4 @@ export * from './library.ts';
 export * from './settings.ts';
 export * from './scan.ts';
 export * from './search.ts';
+export * from './quality.ts';

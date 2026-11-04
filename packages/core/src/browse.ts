@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { AlbumQuality } from './quality.ts';
+
 export const trackSortKeys = ['title', 'artist', 'album', 'year', 'duration'] as const;
 export const albumSortKeys = ['title', 'artist', 'year'] as const;
 export const artistSortKeys = ['name'] as const;
@@ -74,6 +76,8 @@ export interface AlbumSummary {
 	// The latest year among its tracks
 	year: number | null;
 	trackCount: number;
+	// `null` until every track's codec is known (see albumQuality)
+	quality: AlbumQuality | null;
 }
 
 export interface ArtistSummary {
