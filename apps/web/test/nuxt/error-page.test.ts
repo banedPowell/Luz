@@ -4,10 +4,10 @@ import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { ErrorPage } from '#components';
 import { describe, expect, it, vi } from 'vitest';
 
-// The sidebar's theme menu reads the saved settings
+// Pages may load the settings; the theme menu no longer does (ADR 0006)
 registerEndpoint('/api/settings', {
 	method: 'GET',
-	handler: (): Settings => ({ theme: 'system' }),
+	handler: (): Settings => ({}),
 });
 
 function mountError(status: number, details: { statusText?: string; message?: string } = {}) {

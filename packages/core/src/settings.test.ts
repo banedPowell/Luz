@@ -14,12 +14,11 @@ describe('themeSchema', () => {
 
 describe('settingsSchema', () => {
 	it('fills in the defaults for an empty object', () => {
-		expect(settingsSchema.parse({})).toEqual({ theme: 'system' });
+		expect(settingsSchema.parse({})).toEqual({});
 	});
 
 	it('keeps valid values', () => {
-		expect(settingsSchema.parse({ theme: 'dark', musicLibraryPath: '/music' })).toEqual({
-			theme: 'dark',
+		expect(settingsSchema.parse({ musicLibraryPath: '/music' })).toEqual({
 			musicLibraryPath: '/music',
 		});
 	});
@@ -31,7 +30,6 @@ describe('settingsSchema', () => {
 	});
 
 	it.each([
-		{ theme: 'auto' },
 		{ musicLibraryPath: '' },
 		{ musicLibraryPath: '   ' },
 		{ musicLibraryPath: 42 },
@@ -46,8 +44,8 @@ describe('settingsSchema', () => {
 });
 
 describe('defaultSettings', () => {
-	it('uses the system theme and no library path', () => {
-		expect(defaultSettings).toEqual({ theme: 'system' });
+	it('has no library path', () => {
+		expect(defaultSettings).toEqual({});
 		expect('musicLibraryPath' in defaultSettings).toBe(false);
 	});
 });
@@ -55,10 +53,6 @@ describe('defaultSettings', () => {
 describe('settingsPatchSchema', () => {
 	it('accepts an empty patch without applying defaults', () => {
 		expect(settingsPatchSchema.parse({})).toEqual({});
-	});
-
-	it('keeps the given keys only', () => {
-		expect(settingsPatchSchema.parse({ theme: 'light' })).toEqual({ theme: 'light' });
 	});
 
 	it('trims the library path', () => {
@@ -81,8 +75,8 @@ describe('settingsPatchSchema', () => {
 	});
 
 	it.each([
-		{ theme: 'auto' },
-		{ theme: null },
+		// A browser preference, kept in a cookie (ADR 0006)
+		{ theme: 'dark' },
 		{ musicLibraryPath: '' },
 		{ musicLibraryPath: '   ' },
 		{ musicLibraryPath: 42 },

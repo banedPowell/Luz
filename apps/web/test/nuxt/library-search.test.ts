@@ -34,7 +34,7 @@ const queries: Record<string, unknown>[] = [];
 
 registerEndpoint('/api/settings', {
 	method: 'GET',
-	handler: () => ({ theme: 'system', musicLibraryPath: '/music' }),
+	handler: () => ({ musicLibraryPath: '/music' }),
 });
 registerEndpoint('/api/library/tracks', {
 	method: 'GET',

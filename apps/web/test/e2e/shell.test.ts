@@ -5,7 +5,7 @@ import { createPage, setup } from '@nuxt/test-utils/e2e';
 import { afterAll, describe, expect, it } from 'vitest';
 import { sharedBuild } from './build';
 
-// The theme switch saves through the API: keep its database away from the user's
+// The built server opens a database: keep it away from the user's
 const dataDir = mkdtempSync(path.join(tmpdir(), 'luz-e2e-'));
 
 afterAll(() => {
@@ -59,6 +59,20 @@ describe('app shell in a browser', async () => {
 		await page.waitForURL('**/library');
 		await menu.waitFor({ state: 'hidden' });
 		expect(await page.getByRole('heading', { level: 1 }).innerText()).toBe('Library');
+
+		await page.close();
+	});
+
+	it('keeps the theme in this browser across a reload', async () => {
+		const page = await createPage('/');
+		await page.getByRole('button', { name: /^Theme: / }).click();
+		await page.getByRole('menuitemcheckbox', { name: 'Dark' }).click();
+		await page.waitForSelector('html.dark', { state: 'attached' });
+
+		// Read back from the cookie: nothing else stores it
+		await page.reload();
+		await page.waitForSelector('html.dark', { state: 'attached' });
+		await page.getByRole('button', { name: 'Theme: Dark' }).waitFor();
 
 		await page.close();
 	});

@@ -38,24 +38,19 @@ describe('settings', () => {
 
 	it('writes the core defaults on first start', async () => {
 		expect(await getSettings(db)).toEqual(defaultSettings);
-		expect(await db.select().from(settings)).toEqual([
-			{ id: 1, theme: 'system', musicLibraryPath: null },
-		]);
+		expect(await db.select().from(settings)).toEqual([{ id: 1, musicLibraryPath: null }]);
 	});
 
 	it('keeps stored settings when the defaults are ensured again', async () => {
-		await updateSettings(db, { theme: 'dark' });
+		await updateSettings(db, { musicLibraryPath: '/music' });
 
 		await ensureSettings(db);
 
-		expect(await getSettings(db)).toEqual({ theme: 'dark' });
+		expect(await getSettings(db)).toEqual({ musicLibraryPath: '/music' });
 	});
 
-	it('updates only the given keys and returns the result', async () => {
-		await updateSettings(db, { musicLibraryPath: '/music' });
-
-		expect(await updateSettings(db, { theme: 'light' })).toEqual({
-			theme: 'light',
+	it('updates the library path and returns the result', async () => {
+		expect(await updateSettings(db, { musicLibraryPath: '/music' })).toEqual({
 			musicLibraryPath: '/music',
 		});
 	});
@@ -63,29 +58,29 @@ describe('settings', () => {
 	it('clears the library path with null', async () => {
 		await updateSettings(db, { musicLibraryPath: '/music' });
 
-		expect(await updateSettings(db, { musicLibraryPath: null })).toEqual({ theme: 'system' });
+		expect(await updateSettings(db, { musicLibraryPath: null })).toEqual({});
 	});
 
 	it('returns the current settings for an empty patch', async () => {
-		await updateSettings(db, { theme: 'dark' });
+		await updateSettings(db, { musicLibraryPath: '/music' });
 
-		expect(await updateSettings(db, {})).toEqual({ theme: 'dark' });
+		expect(await updateSettings(db, {})).toEqual({ musicLibraryPath: '/music' });
 	});
 
 	it('survives closing and reopening the database', async () => {
-		await updateSettings(db, { theme: 'light', musicLibraryPath: 'D:\\Music' });
+		await updateSettings(db, { musicLibraryPath: 'D:\\Music' });
 		db.$client.close();
 
 		db = await start();
 
-		expect(await getSettings(db)).toEqual({ theme: 'light', musicLibraryPath: 'D:\\Music' });
+		expect(await getSettings(db)).toEqual({ musicLibraryPath: 'D:\\Music' });
 	});
 
 	it('fails clearly when the row is missing', async () => {
 		await db.delete(settings);
 
 		await expect(readSettings(db)).rejects.toThrow('The settings row is missing');
-		await expect(updateSettings(db, { theme: 'dark' })).rejects.toThrow(
+		await expect(updateSettings(db, { musicLibraryPath: '/music' })).rejects.toThrow(
 			'The settings row is missing',
 		);
 	});

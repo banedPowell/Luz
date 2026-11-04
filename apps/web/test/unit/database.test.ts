@@ -34,6 +34,7 @@ describe('loadMigrations', () => {
 			'0001_create_library',
 			'0002_add_search_keys',
 			'0003_add_track_audio',
+			'0004_drop_settings_theme',
 		]);
 		expect(migrations[0]?.statements[0]).toMatch(/^CREATE TABLE `settings`/);
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
@@ -137,6 +138,7 @@ describe('database', () => {
 			'0001_create_library',
 			'0002_add_search_keys',
 			'0003_add_track_audio',
+			'0004_drop_settings_theme',
 		]);
 		expect(await migrate()).toEqual([]);
 	});
@@ -183,31 +185,40 @@ describe('database', () => {
 			await migrate();
 		});
 
-		it('stores a row with a theme and an optional library path', async () => {
-			await db.insert(settings).values({ id: 1, theme: 'dark' });
+		it('stores a row with an optional library path', async () => {
+			await db.insert(settings).values({ id: 1 });
 			await db.update(settings).set({ musicLibraryPath: '/music' });
 
 			expect(await db.select().from(settings)).toEqual([
-				{ id: 1, theme: 'dark', musicLibraryPath: '/music' },
+				{ id: 1, musicLibraryPath: '/music' },
 			]);
 		});
 
 		it('holds a single row', async () => {
-			expect(
-				await failureOf("INSERT INTO settings (id, theme) VALUES (2, 'system')"),
-			).toMatch(/CHECK constraint failed: settings_single_row/);
-		});
-
-		it('rejects a theme outside the core list', async () => {
-			expect(await failureOf("INSERT INTO settings (id, theme) VALUES (1, 'sepia')")).toMatch(
-				/CHECK constraint failed: settings_theme/,
+			expect(await failureOf('INSERT INTO settings (id) VALUES (2)')).toMatch(
+				/CHECK constraint failed: settings_single_row/,
 			);
 		});
+	});
 
-		it('requires a theme', async () => {
-			expect(await failureOf('INSERT INTO settings (id) VALUES (1)')).toMatch(
-				/NOT NULL constraint failed: settings.theme/,
-			);
-		});
+	// The theme left the database for a cookie (ADR 0006); the library path must survive
+	it('keeps the library path when the theme column is dropped', async () => {
+		const migrations = await loadMigrations(readMigrationsFolder);
+		const upTo0003 = migrations.slice(
+			0,
+			migrations.findIndex((migration) => migration.tag === '0004_drop_settings_theme'),
+		);
+		await applyMigrations(db.$client, upTo0003);
+		await db.$client.execute(
+			"INSERT INTO settings (id, theme, music_library_path) VALUES (1, 'dark', '/music')",
+		);
+
+		const applied = await applyMigrations(db.$client, migrations);
+
+		expect(applied.map((migration) => migration.tag)).toEqual(['0004_drop_settings_theme']);
+		expect(await db.select().from(settings)).toEqual([{ id: 1, musicLibraryPath: '/music' }]);
+		expect(await failureOf('INSERT INTO settings (id) VALUES (2)')).toMatch(
+			/CHECK constraint failed: settings_single_row/,
+		);
 	});
 });

@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { settingsPatchSchema, type Settings, type SettingsPatch, type Theme } from '@luz/core';
+import {
+	settingsPatchSchema,
+	themes,
+	type Settings,
+	type SettingsPatch,
+	type Theme,
+} from '@luz/core';
 import type { FormError, SelectItem } from '@nuxt/ui';
 
 const { settings, load, update } = useSettings();
 const appConfig = useAppConfig();
 const toast = useToast();
+const colorMode = useColorMode();
 
 const loadError = ref(false);
-const state = reactive({ theme: 'system' as Theme, musicLibraryPath: '' });
+const state = reactive({ musicLibraryPath: '' });
 
 function fill(values: Settings) {
-	state.theme = values.theme;
 	state.musicLibraryPath = values.musicLibraryPath ?? '';
 }
 
@@ -30,16 +36,6 @@ if (settings.value) {
 	await retryLoad();
 }
 
-// The sidebar theme menu saves on its own: keep the form in step with it
-watch(
-	() => settings.value?.theme,
-	(theme) => {
-		if (theme) {
-			state.theme = theme;
-		}
-	},
-);
-
 const themeItems = computed(
 	() =>
 		[
@@ -49,10 +45,17 @@ const themeItems = computed(
 		] satisfies (SelectItem & { value: Theme })[],
 );
 
+// Applied at once and kept by color-mode in its cookie, outside the saved settings (ADR 0006)
+const theme = computed<Theme>({
+	get: () => themes.find((value) => value === colorMode.preference) ?? 'system',
+	set: (value) => {
+		colorMode.preference = value;
+	},
+});
+
 // An empty field clears the path, which the API takes as null
 function toPatch(values: Partial<typeof state>): SettingsPatch {
 	return {
-		theme: values.theme,
 		musicLibraryPath: values.musicLibraryPath?.trim() ? values.musicLibraryPath : null,
 	};
 }
@@ -95,6 +98,21 @@ async function save() {
 			:actions="[{ label: 'Retry', color: 'error', variant: 'outline', onClick: retryLoad }]"
 		/>
 
+		<UFormField
+			label="Theme"
+			description="Applied at once, in this browser only. System follows the light or dark setting of your device."
+		>
+			<USelect
+				v-model="theme"
+				:items="themeItems"
+				:icon="themeItems.find((item) => item.value === theme)?.icon"
+				aria-label="Theme"
+				class="w-full sm:w-56"
+			/>
+		</UFormField>
+
+		<USeparator />
+
 		<UForm
 			:state="state"
 			:validate="validate"
@@ -102,19 +120,6 @@ async function save() {
 			class="flex flex-col gap-6"
 			@submit="save"
 		>
-			<UFormField
-				name="theme"
-				label="Theme"
-				description="System follows the light or dark setting of your device."
-			>
-				<USelect
-					v-model="state.theme"
-					:items="themeItems"
-					:icon="themeItems.find((item) => item.value === state.theme)?.icon"
-					class="w-full sm:w-56"
-				/>
-			</UFormField>
-
 			<UFormField
 				name="musicLibraryPath"
 				label="Music library"
