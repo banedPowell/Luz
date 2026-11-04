@@ -47,6 +47,8 @@ let artistPage: LibraryPage<ArtistSummary>;
 let album: AlbumDetail;
 let artist: ArtistDetail;
 let detail: TrackDetail | undefined;
+// Set to make the track endpoint fail with this message
+let detailFailure: string | undefined;
 const queries: Record<string, unknown>[] = [];
 
 registerEndpoint('/api/settings', {
@@ -67,6 +69,9 @@ registerEndpoint('/api/library/artists/1', { method: 'GET', handler: () => artis
 registerEndpoint('/api/library/tracks/1', {
 	method: 'GET',
 	handler: () => {
+		if (detailFailure) {
+			throw createError({ statusCode: 500, message: detailFailure });
+		}
 		if (!detail) {
 			throw createError({ statusCode: 404, message: 'No such track' });
 		}
@@ -162,6 +167,7 @@ describe('library views', () => {
 		};
 		artist = { ...alpha, albumCount: 1, trackCount: 3, albums: [album] };
 		detail = trackDetail();
+		detailFailure = undefined;
 	});
 
 	it('lists tracks with their artist and album, naming untagged values', async () => {
@@ -352,6 +358,31 @@ describe('library views', () => {
 
 		expect(dialog.textContent).toContain('read at the next scan');
 		expect(dialog.textContent).toMatch(/Format\s*Unknown/);
+	});
+
+	it('does not show the message of a failure', async () => {
+		detailFailure = 'Internal detail of the server';
+		const wrapper = await mountAt('/library');
+		await wrapper.find('button[aria-label="More actions for Track 1"]').trigger('click');
+
+		await vi.waitFor(() => {
+			const item = [...document.querySelectorAll('[role="menuitem"]')].find(
+				(element) => element.textContent?.trim() === 'Show details',
+			);
+			if (!(item instanceof HTMLElement)) {
+				throw new Error('The menu is not open');
+			}
+			item.click();
+		});
+
+		await vi.waitFor(() => {
+			expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+				'Try again in a moment.',
+			);
+		});
+		expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain(
+			'Internal detail of the server',
+		);
 	});
 
 	it('says when a track is no longer in the library', async () => {

@@ -39,6 +39,29 @@ describe('loadMigrations', () => {
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
 	});
 
+	// Rewriting a migration a database has applied makes it pending again under its new
+	// date: its statements then run twice and the server fails to start. Pin each one here once
+	// merged; unmerged ones too may have been applied by a branch's dev database. Add a migration instead.
+	it('keeps the migrations already applied unchanged', async () => {
+		const hashes = Object.fromEntries(
+			(await loadMigrations(readMigrationsFolder)).map((migration) => [
+				migration.tag,
+				`${migration.createdAt}:${migration.hash}`,
+			]),
+		);
+
+		expect(hashes).toMatchObject({
+			'0000_create_settings':
+				'1793526971211:d7d1b064768ef5bda0797cfa4696630fc8dd7422f8a29b0aab6bc05dbb9128d6',
+			'0001_create_library':
+				'1793542870051:3f4fdcf01f7d4b75ffcf8b0023edd168f55466183a8bf304d067c32b75f0fae9',
+			'0002_add_search_keys':
+				'1793549739047:90d0e6f409be9f636ac8997cabfc66973dc15ada2388d04715e4cb1c849d9423',
+			'0003_add_track_audio':
+				'1793821056793:369966096b82a110baad4acf547e608251cebabf79d6d9cdb44b657bd98b5682',
+		});
+	});
+
 	it('splits a migration on statement breakpoints and drops empty statements', async () => {
 		const migrations = await loadMigrations(
 			readerOf({
