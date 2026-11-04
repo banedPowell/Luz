@@ -1,4 +1,4 @@
-import { basename, dirname } from 'node:path';
+import { basename, dirname, isAbsolute, relative } from 'node:path';
 import {
 	albumOf,
 	albumQuality,
@@ -6,6 +6,7 @@ import {
 	formatArtists,
 	searchKey,
 	type AlbumDetail,
+	type AlbumFolder,
 	type AlbumSortKey,
 	type AlbumSummary,
 	type ArtistDetail,
@@ -370,14 +371,18 @@ function selectTracks(db: Database) {
 
 type TrackRow = Awaited<ReturnType<typeof selectTracks>>[number];
 
-// The path stays on the server; the file name stands in for a missing title
-function toTrackSummary({ path: filePath, ...row }: TrackRow): TrackSummary {
-	return { ...row, fileName: basename(filePath) };
+// The file name stands in for a missing title
+function toTrackSummary(row: TrackRow): TrackSummary {
+	return { ...row, fileName: basename(row.path) };
 }
 
 // An album has no folder of its own: it is wherever its files are, possibly several places
-function foldersOf(rows: readonly Pick<TrackRow, 'path'>[]): string[] {
-	return [...new Set(rows.map((row) => dirname(row.path)))].toSorted();
+function foldersOf(rows: readonly Pick<TrackRow, 'path'>[], libraryRoot?: string): AlbumFolder[] {
+	return [...new Set(rows.map((row) => dirname(row.path)))].toSorted().map((path) => {
+		const inLibrary = libraryRoot === undefined ? '' : relative(libraryRoot, path);
+		const outside = inLibrary === '' || inLibrary.startsWith('..') || isAbsolute(inLibrary);
+		return { path, relativePath: outside ? null : inLibrary };
+	});
 }
 
 // Inner joins: an album or artist always has tracks, empty groups being pruned
@@ -492,7 +497,11 @@ export function countArtists(db: Database): Promise<number> {
 }
 
 /** An album with its tracks by disc then track number, or `undefined` if there is none with this id. */
-export async function findAlbum(db: Database, id: number): Promise<AlbumDetail | undefined> {
+export async function findAlbum(
+	db: Database,
+	id: number,
+	libraryRoot?: string,
+): Promise<AlbumDetail | undefined> {
 	const [album] = await selectAlbums(db, eq(albums.id, id));
 	if (!album) {
 		return undefined;
@@ -500,11 +509,19 @@ export async function findAlbum(db: Database, id: number): Promise<AlbumDetail |
 	const rows = await selectTracks(db)
 		.where(eq(tracks.albumId, id))
 		.orderBy(...inAlbumOrder, asc(tracks.id));
-	return { ...toAlbumSummary(album), folders: foldersOf(rows), tracks: rows.map(toTrackSummary) };
+	return {
+		...toAlbumSummary(album),
+		folders: foldersOf(rows, libraryRoot),
+		tracks: rows.map(toTrackSummary),
+	};
 }
 
 /** An artist with its albums, oldest first, each with its tracks; `undefined` if there is none with this id. */
-export async function findArtist(db: Database, id: number): Promise<ArtistDetail | undefined> {
+export async function findArtist(
+	db: Database,
+	id: number,
+	libraryRoot?: string,
+): Promise<ArtistDetail | undefined> {
 	const [artist] = await selectArtists(db, eq(artists.id, id));
 	if (!artist) {
 		return undefined;
@@ -524,7 +541,7 @@ export async function findArtist(db: Database, id: number): Promise<ArtistDetail
 			const rows = rowsByAlbum.get(album.id) ?? [];
 			return {
 				...toAlbumSummary(album),
-				folders: foldersOf(rows),
+				folders: foldersOf(rows, libraryRoot),
 				tracks: rows.map(toTrackSummary),
 			};
 		}),

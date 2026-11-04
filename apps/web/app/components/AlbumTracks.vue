@@ -27,7 +27,6 @@ const columns: TableColumn<TrackSummary>[] = [
 		meta: { class: { th: 'hidden sm:table-cell', td: 'hidden sm:table-cell' } },
 	},
 	{
-		// Kept on narrow screens: the format is what a file manager shows first
 		id: 'format',
 		header: 'Format',
 	},
@@ -42,9 +41,15 @@ const columns: TableColumn<TrackSummary>[] = [
 		},
 	},
 	{
+		// Narrow screens keep title and format, the file manager's view (interface principles)
 		id: 'duration',
 		header: 'Duration',
-		meta: { class: { th: 'text-end', td: 'text-end tabular-nums' } },
+		meta: {
+			class: {
+				th: 'hidden text-end sm:table-cell',
+				td: 'hidden text-end tabular-nums sm:table-cell',
+			},
+		},
 	},
 	{
 		id: 'actions',

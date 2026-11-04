@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
 import { insertTrack } from '../../server/infrastructure/database/library-repository';
+import { ensureSettings } from '../../server/infrastructure/database/settings-repository';
 import { applyMigrations, loadMigrations } from '../../server/infrastructure/database/migrations';
 import {
 	browseAlbums,
@@ -21,6 +22,7 @@ import {
 	getArtist,
 	getTrack,
 } from '../../server/services/library-browse';
+import { updateSettings } from '../../server/services/settings';
 import { audioOf } from './support/audio';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
@@ -36,6 +38,7 @@ describe('library browse', () => {
 		dataDir = mkdtempSync(path.join(tmpdir(), 'luz-test-'));
 		db = openDatabase(dataDir);
 		await applyMigrations(db.$client, await loadMigrations(readMigrationsFolder));
+		await ensureSettings(db);
 	});
 
 	afterEach(async () => {
@@ -147,7 +150,7 @@ describe('library browse', () => {
 			album: { title: null },
 			artist: { name: null },
 		});
-		expect(untagged).not.toHaveProperty('path');
+		expect(untagged?.path).toBe(path.join(dataDir, 'music', 'untagged.mp3'));
 	});
 
 	it('sorts tracks by album, keeping disc and track order inside each album', async () => {
@@ -293,8 +296,9 @@ describe('library browse', () => {
 		expect(album?.tracks[2]?.artists).toBe('Alpha, Guest');
 	});
 
-	it('gives an album the folders of its tracks, once each and sorted', async () => {
+	it('gives an album the folders of its tracks, once each, sorted and named in the library', async () => {
 		const music = path.join(dataDir, 'music');
+		await updateSettings(db, { musicLibraryPath: music });
 		const tags = { album: 'Split', albumArtist: 'Gamma' };
 		await add(path.join('Split', 'CD2', '01.flac'), { ...tags, discNumber: 2 });
 		const first = await add(path.join('Split', 'CD1', '01.flac'), { ...tags, discNumber: 1 });
@@ -303,9 +307,23 @@ describe('library browse', () => {
 		const album = await getAlbum(db, first.album.id);
 		const artist = await getArtist(db, first.artist.id);
 
-		const folders = [path.join(music, 'Split', 'CD1'), path.join(music, 'Split', 'CD2')];
+		const folders = ['CD1', 'CD2'].map((disc) => ({
+			path: path.join(music, 'Split', disc),
+			relativePath: path.join('Split', disc),
+		}));
 		expect(album?.folders).toEqual(folders);
 		expect(artist?.albums[0]?.folders).toEqual(folders);
+	});
+
+	it('names no folder in the library when it is outside or none is set', async () => {
+		const album = await add(path.join('Loose', '01.flac'));
+
+		expect((await getAlbum(db, album.album.id))?.folders[0]?.relativePath).toBeNull();
+		await updateSettings(db, { musicLibraryPath: path.join(dataDir, 'other') });
+		expect((await getAlbum(db, album.album.id))?.folders[0]?.relativePath).toBeNull();
+		await updateSettings(db, { musicLibraryPath: path.join(dataDir, 'music', 'Loose') });
+		// The library folder itself is shown in full
+		expect((await getAlbum(db, album.album.id))?.folders[0]?.relativePath).toBeNull();
 	});
 
 	it('gives each track of a list its codec and bitrate', async () => {

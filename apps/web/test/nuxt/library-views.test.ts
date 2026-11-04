@@ -25,6 +25,7 @@ function track(id: number, overrides: Partial<TrackSummary> = {}): TrackSummary 
 	return {
 		id,
 		title: `Track ${id}`,
+		path: `/music/Alpha/Alpha One/${id}.flac`,
 		fileName: `${id}.flac`,
 		artists: 'Alpha',
 		trackNumber: id,
@@ -101,17 +102,25 @@ function trackDetail(overrides: Partial<TrackDetail> = {}): TrackDetail {
 }
 
 // The menu and the window open in a portal outside the mounted page
-async function openDetails(wrapper: Awaited<ReturnType<typeof mountAt>>, title: string) {
+async function chooseFromMenu(
+	wrapper: Awaited<ReturnType<typeof mountAt>>,
+	title: string,
+	label: string,
+) {
 	await wrapper.find(`button[aria-label="More actions for ${title}"]`).trigger('click');
 	await vi.waitFor(() => {
 		const item = [...document.querySelectorAll('[role="menuitem"]')].find(
-			(element) => element.textContent?.trim() === 'Show details',
+			(element) => element.textContent?.trim() === label,
 		);
 		if (!(item instanceof HTMLElement)) {
 			throw new Error('The menu is not open');
 		}
 		item.click();
 	});
+}
+
+async function openDetails(wrapper: Awaited<ReturnType<typeof mountAt>>, title: string) {
+	await chooseFromMenu(wrapper, title, 'Show details');
 	await nextTick();
 	return vi.waitFor(() => {
 		const dialog = document.querySelector('[role="dialog"]');
@@ -161,7 +170,10 @@ describe('library views', () => {
 			year: 2001,
 			trackCount: 3,
 			quality: 'lossless',
-			folders: ['/music/Alpha/Alpha One/CD1', '/music/Alpha/Alpha One/CD2'],
+			folders: [
+				{ path: '/music/Alpha/Alpha One/CD1', relativePath: 'Alpha/Alpha One/CD1' },
+				{ path: '/elsewhere/Alpha One', relativePath: null },
+			],
 			tracks: [
 				track(1),
 				track(2),
@@ -300,22 +312,51 @@ describe('library views', () => {
 		expect(rows[2]).toContain('Alpha, Guest');
 	});
 
-	it('shows the folders of an album, each with a button copying its path', async () => {
+	it('shows the folders of an album in the library, each copying its full path', async () => {
 		const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
 		const wrapper = await mountAt('/library/albums/10');
 
-		expect(wrapper.text()).toContain('Folders');
-		expect(wrapper.findAll('code').map((code) => code.text())).toEqual([
-			'/music/Alpha/Alpha One/CD1',
-			'/music/Alpha/Alpha One/CD2',
+		const folders = wrapper.findAll('ul[aria-label="Folders"] li span[title]');
+		// A folder outside the library has no shorter name
+		expect(folders.map((folder) => [folder.text(), folder.attributes('title')])).toEqual([
+			['Alpha/Alpha One/CD1', '/music/Alpha/Alpha One/CD1'],
+			['/elsewhere/Alpha One', '/elsewhere/Alpha One'],
 		]);
-		const copy = wrapper.find('button[aria-label="Copy path /music/Alpha/Alpha One/CD2"]');
-		expect(copy.text()).toBe('Copy path');
-		await copy.trigger('click');
+		await wrapper
+			.find('button[aria-label="Copy path /music/Alpha/Alpha One/CD1"]')
+			.trigger('click');
 
-		expect(writeText).toHaveBeenCalledWith('/music/Alpha/Alpha One/CD2');
+		expect(writeText).toHaveBeenCalledWith('/music/Alpha/Alpha One/CD1');
 		await vi.waitFor(() => {
-			expect(copy.text()).toBe('Copied');
+			expect(document.body.textContent).toContain('Path copied');
+		});
+		writeText.mockRestore();
+	});
+
+	it('copies the path of a track from its row menu', async () => {
+		const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+		const wrapper = await mountAt('/library');
+
+		await chooseFromMenu(wrapper, 'Track 1', 'Copy path');
+
+		await vi.waitFor(() => {
+			expect(writeText).toHaveBeenCalledWith('/music/Alpha/Alpha One/1.flac');
+		});
+		writeText.mockRestore();
+	});
+
+	it('says when the clipboard refuses a path', async () => {
+		const writeText = vi
+			.spyOn(navigator.clipboard, 'writeText')
+			.mockRejectedValue(new Error('Denied'));
+		const wrapper = await mountAt('/library/albums/10');
+
+		await wrapper
+			.find('button[aria-label="Copy path /music/Alpha/Alpha One/CD1"]')
+			.trigger('click');
+
+		await vi.waitFor(() => {
+			expect(document.body.textContent).toContain('Could not copy the path');
 		});
 		writeText.mockRestore();
 	});

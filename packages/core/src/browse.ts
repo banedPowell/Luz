@@ -58,6 +58,8 @@ export interface LibraryPage<T> {
 export interface TrackSummary {
 	id: number;
 	title: string | null;
+	// The absolute path: Luz shows the files it manages
+	path: string;
 	// Shown in place of a missing title
 	fileName: string;
 	artists: string | null;
@@ -96,8 +98,6 @@ export interface ArtistSummary {
  * they were stored, until the next scan reads it again.
  */
 export interface TrackDetail extends TrackSummary {
-	// The absolute path: Luz shows the files it manages
-	path: string;
 	genre: string | null;
 	fileSize: number;
 	modifiedAtMs: number;
@@ -108,11 +108,19 @@ export interface TrackDetail extends TrackSummary {
 	channels: number | null;
 }
 
+/** A folder holding tracks of an album. */
+export interface AlbumFolder {
+	path: string;
+	// Relative to the music library, shorter to read; `null` for the library itself or a
+	// folder outside it
+	relativePath: string | null;
+}
+
 /** An album with its tracks, by disc then track number. */
 export interface AlbumDetail extends AlbumSummary {
-	// The absolute folders holding its tracks, sorted: usually one, several when the discs or
+	// The folders holding its tracks, sorted by path: usually one, several when the discs or
 	// tracks of one album sit in different folders
-	folders: string[];
+	folders: AlbumFolder[];
 	tracks: TrackSummary[];
 }
 

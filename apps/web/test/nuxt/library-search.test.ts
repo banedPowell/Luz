@@ -16,6 +16,7 @@ function track(id: number, overrides: Partial<TrackSummary> = {}): TrackSummary 
 	return {
 		id,
 		title: `Déjà Vu ${id}`,
+		path: `/music/${id}.flac`,
 		fileName: `${id}.flac`,
 		artists: 'Beyoncé, Jay-Z',
 		trackNumber: id,

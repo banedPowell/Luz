@@ -98,6 +98,7 @@ describe('library page', () => {
 			{
 				id: 1,
 				title: 'Fresh Track',
+				path: '/music/01.flac',
 				fileName: '01.flac',
 				artists: 'Alpha',
 				trackNumber: 1,

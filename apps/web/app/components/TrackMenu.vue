@@ -3,10 +3,11 @@ import type { TrackSummary } from '@luz/core';
 import type { DropdownMenuItem } from '@nuxt/ui';
 
 const props = defineProps<{
-	track: Pick<TrackSummary, 'id' | 'title' | 'fileName'>;
+	track: Pick<TrackSummary, 'id' | 'title' | 'fileName' | 'path'>;
 }>();
 
 const appConfig = useAppConfig();
+const { copyPath } = useCopyPath();
 const detailsOpen = ref(false);
 const title = computed(() => trackTitle(props.track));
 
@@ -18,6 +19,11 @@ const items = computed<DropdownMenuItem[]>(() => [
 		onSelect: () => {
 			detailsOpen.value = true;
 		},
+	},
+	{
+		label: 'Copy path',
+		icon: appConfig.ui.icons.copy,
+		onSelect: () => copyPath(props.track.path),
 	},
 ]);
 </script>

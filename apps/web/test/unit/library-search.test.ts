@@ -97,7 +97,8 @@ describe('library search', () => {
 		]);
 		const track = (await search('glosoli')).tracks.items[0];
 		expect(track).toMatchObject({ album: { title: 'Takk...' }, artist: { name: 'Sigur Rós' } });
-		expect(track).not.toHaveProperty('path');
+		// The path lets a result's row menu copy it
+		expect(track?.path).toBe(path.join(dataDir, 'music', '4.flac'));
 	});
 
 	it('limits each group and still counts every match', async () => {
