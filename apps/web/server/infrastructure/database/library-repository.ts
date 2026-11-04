@@ -1,6 +1,7 @@
 import { basename } from 'node:path';
 import {
 	albumOf,
+	albumQuality,
 	artistOf,
 	formatArtists,
 	searchKey,
@@ -12,6 +13,7 @@ import {
 	type ArtistSummary,
 	type SortOrder,
 	type TrackSortKey,
+	type TrackAudio,
 	type TrackSummary,
 	type TrackTags,
 } from '@luz/core';
@@ -42,6 +44,7 @@ export interface TrackFile {
 	fileSize: number;
 	modifiedAtMs: number;
 	tags: TrackTags;
+	audio: TrackAudio;
 }
 
 /** A stored track with the album and artist it is grouped under. */
@@ -55,6 +58,9 @@ export interface LibraryTrack {
 	year: number | null;
 	genre: string | null;
 	durationMs: number | null;
+	codec: string | null;
+	// `null` until the track is read again by a scan, for one indexed before codecs were stored
+	lossless: boolean | null;
 	fileSize: number;
 	modifiedAtMs: number;
 	album: { id: number; title: string | null };
@@ -125,17 +131,27 @@ export async function deleteTrack(db: Database, path: string): Promise<boolean> 
 	});
 }
 
-/** The file of a stored track as last indexed, for the rescan to compare with the disk. */
+/**
+ * The file of a stored track as last indexed, for the rescan to compare with the disk.
+ * `audioKnown` is false for a track indexed before its codec was stored.
+ */
 export interface IndexedFile {
 	path: string;
 	fileSize: number;
 	modifiedAtMs: number;
+	audioKnown: boolean;
 }
 
-export function listIndexedFiles(db: Database): Promise<IndexedFile[]> {
-	return db
-		.select({ path: tracks.path, fileSize: tracks.fileSize, modifiedAtMs: tracks.modifiedAtMs })
+export async function listIndexedFiles(db: Database): Promise<IndexedFile[]> {
+	const rows = await db
+		.select({
+			path: tracks.path,
+			fileSize: tracks.fileSize,
+			modifiedAtMs: tracks.modifiedAtMs,
+			lossless: tracks.lossless,
+		})
 		.from(tracks);
+	return rows.map(({ lossless, ...file }) => ({ ...file, audioKnown: lossless !== null }));
 }
 
 // Well below SQLite's limit on bound parameters, whatever the build
@@ -184,6 +200,8 @@ async function toTrackRow(tx: Transaction, file: TrackFile): Promise<typeof trac
 		year: tags.year ?? null,
 		genre: tags.genre ?? null,
 		durationMs: tags.durationMs ?? null,
+		codec: file.audio.codec,
+		lossless: file.audio.lossless,
 		fileSize: file.fileSize,
 		modifiedAtMs: file.modifiedAtMs,
 	};
@@ -299,6 +317,15 @@ const inAlbumOrder = [
 
 const albumYear = max(tracks.year);
 
+// Counted by the database, so the badge of a grid of albums needs no track rows
+const albumTrackQualities = {
+	trackCount: count(tracks.id),
+	losslessCount: sql<number>`count(case when ${tracks.lossless} then 1 end)`.mapWith(Number),
+	unknownCount: sql<number>`count(case when ${tracks.lossless} is null then 1 end)`.mapWith(
+		Number,
+	),
+};
+
 // What a track list shows as its artist: the track artists, else the album's
 const trackArtist = sql`coalesce(${tracks.artists}, ${artists.name})`;
 
@@ -336,13 +363,22 @@ function selectAlbums(db: Database, where?: SQL) {
 			title: albums.title,
 			artist: { id: artists.id, name: artists.name },
 			year: albumYear,
-			trackCount: count(tracks.id),
+			...albumTrackQualities,
 		})
 		.from(albums)
 		.innerJoin(artists, eq(artists.id, albums.artistId))
 		.innerJoin(tracks, eq(tracks.albumId, albums.id))
 		.where(where)
 		.groupBy(albums.id);
+}
+
+type AlbumRow = Awaited<ReturnType<typeof selectAlbums>>[number];
+
+function toAlbumSummary({ losslessCount, unknownCount, ...row }: AlbumRow): AlbumSummary {
+	return {
+		...row,
+		quality: albumQuality({ trackCount: row.trackCount, losslessCount, unknownCount }),
+	};
 }
 
 function selectArtists(db: Database, where?: SQL) {
@@ -401,10 +437,11 @@ export async function listAlbums(
 	db: Database,
 	{ sort, order, limit, offset }: ListWindow<AlbumSortKey>,
 ): Promise<AlbumSummary[]> {
-	return selectAlbums(db)
+	const rows = await selectAlbums(db)
 		.orderBy(...albumOrder(sort, order), asc(albums.id))
 		.limit(limit)
 		.offset(offset);
+	return rows.map(toAlbumSummary);
 }
 
 export async function listArtists(
@@ -438,7 +475,7 @@ export async function findAlbum(db: Database, id: number): Promise<AlbumDetail |
 	const rows = await selectTracks(db)
 		.where(eq(tracks.albumId, id))
 		.orderBy(...inAlbumOrder, asc(tracks.id));
-	return { ...album, tracks: rows.map(toTrackSummary) };
+	return { ...toAlbumSummary(album), tracks: rows.map(toTrackSummary) };
 }
 
 /** An artist with its albums, oldest first, each with its tracks; `undefined` if there is none with this id. */
@@ -458,7 +495,10 @@ export async function findArtist(db: Database, id: number): Promise<ArtistDetail
 	const tracksByAlbum = Map.groupBy(trackRows.map(toTrackSummary), (track) => track.album.id);
 	return {
 		...artist,
-		albums: albumRows.map((album) => ({ ...album, tracks: tracksByAlbum.get(album.id) ?? [] })),
+		albums: albumRows.map((album) => ({
+			...toAlbumSummary(album),
+			tracks: tracksByAlbum.get(album.id) ?? [],
+		})),
 	};
 }
 
@@ -512,8 +552,8 @@ export async function searchAlbums(
 		.where(where)
 		.orderBy(...order)
 		.limit(limit);
-	const items = await selectAlbums(db, inArray(albums.id, first)).orderBy(...order);
-	return { items, total: await db.$count(albums, where) };
+	const rows = await selectAlbums(db, inArray(albums.id, first)).orderBy(...order);
+	return { items: rows.map(toAlbumSummary), total: await db.$count(albums, where) };
 }
 
 export async function searchArtists(

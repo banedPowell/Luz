@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { trackTagsSchema, type ScanSummary, type TrackTags } from '@luz/core';
+import { trackTagsSchema, type ScanSummary, type TrackAudio, type TrackTags } from '@luz/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
@@ -23,18 +23,21 @@ import {
 } from '../../server/infrastructure/database/settings-repository';
 import type { TagReader, TagReadResult } from '../../server/infrastructure/tag-reader';
 import { ScanError, scanLibrary } from '../../server/services/library-scan';
+import { audioOf } from './support/audio';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
 /**
  * Stands in for music-metadata: a file named `broken*` or listed in `unreadable` cannot be
  * read, any other one is tagged after its folder (album) and its name (title), unless
- * `tags` gives its own. Records what it was asked to read.
+ * `tags` gives its own, and has the codec of its extension, unless `audio` gives one.
+ * Records what it was asked to read.
  */
 class FakeTagReader implements TagReader {
 	reads: string[] = [];
 	gate: Promise<void> | undefined;
 	readonly unreadable = new Set<string>();
 	readonly tags = new Map<string, Partial<TrackTags>>();
+	readonly audio = new Map<string, TrackAudio>();
 
 	async read(filePath: string): Promise<TagReadResult> {
 		this.reads.push(filePath);
@@ -51,6 +54,7 @@ class FakeTagReader implements TagReader {
 				album: path.basename(path.dirname(filePath)),
 				...this.tags.get(filePath),
 			}),
+			audio: this.audio.get(filePath) ?? audioOf(filePath),
 		};
 	}
 }
@@ -62,6 +66,11 @@ function summary(counts: Partial<ScanSummary>): ScanSummary {
 // What proves the scan left a file alone: its content and its modification time
 function snapshot(filePath: string) {
 	return { content: readFileSync(filePath, 'utf8'), mtimeMs: statSync(filePath).mtimeMs };
+}
+
+// What migration 0003 leaves: the rows it found have no codec yet
+async function forgetCodecs(db: Database) {
+	await db.update(tracks).set({ codec: null, lossless: null });
 }
 
 async function scanError(promise: Promise<unknown>): Promise<ScanError> {
@@ -141,6 +150,19 @@ describe('scanLibrary', () => {
 		expect(reader.reads.map((read) => path.basename(read))).toEqual(['01.mp3']);
 	});
 
+	it('stores the codec of each track and whether it is lossless', async () => {
+		const flac = file('Album/01.flac');
+		const aac = file('Album/02.m4a');
+		const alac = file('Album/03.m4a');
+		reader.audio.set(alac, { codec: 'ALAC', lossless: true });
+
+		await scanLibrary(db, reader);
+
+		expect(await findTrackByPath(db, flac)).toMatchObject({ codec: 'FLAC', lossless: true });
+		expect(await findTrackByPath(db, aac)).toMatchObject({ codec: 'AAC', lossless: false });
+		expect(await findTrackByPath(db, alac)).toMatchObject({ codec: 'ALAC', lossless: true });
+	});
+
 	it('skips and counts unreadable files, and keeps scanning', async () => {
 		file('Album/01.mp3');
 		file('Album/broken.flac');
@@ -199,6 +221,55 @@ describe('scanLibrary', () => {
 				album: { title: 'Other Album' },
 			});
 			expect(await albumTitles()).toEqual(['Album', 'Other Album']);
+		});
+
+		it('refreshes the codec of a file read again', async () => {
+			const changed = indexedFile('Album/01.m4a');
+			await indexedScan();
+			writeFileSync(changed, 'reencoded audio');
+			reader.audio.set(changed, { codec: 'ALAC', lossless: true });
+
+			expect(await scanLibrary(db, reader)).toEqual(summary({ updated: 1 }));
+			expect(await findTrackByPath(db, changed)).toMatchObject({
+				codec: 'ALAC',
+				lossless: true,
+			});
+		});
+
+		it('reads once the unchanged files indexed before codecs were stored', async () => {
+			const flac = indexedFile('Album/01.flac');
+			const mp3 = indexedFile('Album/02.mp3');
+			await indexedScan();
+			await forgetCodecs(db);
+
+			expect(await scanLibrary(db, reader)).toEqual(summary({ updated: 2 }));
+			expect(reader.reads.toSorted()).toEqual([flac, mp3].toSorted());
+			expect(await findTrackByPath(db, flac)).toMatchObject({
+				codec: 'FLAC',
+				lossless: true,
+			});
+			expect(await findTrackByPath(db, mp3)).toMatchObject({ codec: 'MP3', lossless: false });
+
+			reader.reads = [];
+			expect(await scanLibrary(db, reader)).toEqual(summary({ unchanged: 2 }));
+			expect(reader.reads).toEqual([]);
+		});
+
+		it('keeps an unchanged track whose codec cannot be read, and tries again later', async () => {
+			const kept = indexedFile('Album/01.flac');
+			await indexedScan();
+			await forgetCodecs(db);
+			reader.unreadable.add(kept);
+
+			expect(await scanLibrary(db, reader)).toEqual(summary({ skipped: 1 }));
+			expect(await findTrackByPath(db, kept)).toMatchObject({
+				album: { title: 'Album' },
+				lossless: null,
+			});
+
+			reader.unreadable.delete(kept);
+			expect(await scanLibrary(db, reader)).toEqual(summary({ updated: 1 }));
+			expect(await findTrackByPath(db, kept)).toMatchObject({ lossless: true });
 		});
 
 		it('reads a file again when only its modification time changed', async () => {

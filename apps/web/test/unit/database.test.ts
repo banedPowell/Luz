@@ -33,6 +33,7 @@ describe('loadMigrations', () => {
 			'0000_create_settings',
 			'0001_create_library',
 			'0002_add_search_keys',
+			'0003_add_track_audio',
 		]);
 		expect(migrations[0]?.statements[0]).toMatch(/^CREATE TABLE `settings`/);
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
@@ -112,6 +113,7 @@ describe('database', () => {
 			'0000_create_settings',
 			'0001_create_library',
 			'0002_add_search_keys',
+			'0003_add_track_audio',
 		]);
 		expect(await migrate()).toEqual([]);
 	});

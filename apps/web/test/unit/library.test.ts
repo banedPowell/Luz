@@ -2,6 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { trackTagsSchema, type TrackTags } from '@luz/core';
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
@@ -16,6 +17,7 @@ import {
 } from '../../server/infrastructure/database/library-repository';
 import { applyMigrations, loadMigrations } from '../../server/infrastructure/database/migrations';
 import { albums, artists, tracks } from '../../server/infrastructure/database/schema';
+import { audioOf } from './support/audio';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
 function trackFile(filePath: string, tags: Partial<TrackTags> = {}): TrackFile {
@@ -24,6 +26,7 @@ function trackFile(filePath: string, tags: Partial<TrackTags> = {}): TrackFile {
 		fileSize: 1024,
 		modifiedAtMs: 1_700_000_000_000,
 		tags: trackTagsSchema.parse(tags),
+		audio: audioOf(filePath),
 	};
 }
 
@@ -86,6 +89,8 @@ describe('library repository', () => {
 			year: 1969,
 			genre: 'Rock',
 			durationMs: 259_000,
+			codec: 'FLAC',
+			lossless: true,
 			fileSize: 1024,
 			modifiedAtMs: 1_700_000_000_000,
 			album: { id: expect.any(Number), title: 'Abbey Road' },
@@ -156,12 +161,15 @@ describe('library repository', () => {
 			...trackFile('/m/1.mp3', { title: 'New', artists: ['A', 'B'] }),
 			fileSize: 2048,
 			modifiedAtMs: 1_800_000_000_000,
+			audio: { codec: 'ALAC', lossless: true },
 		});
 
 		expect(updated).toMatchObject({
 			id: inserted.id,
 			title: 'New',
 			artists: 'A, B',
+			codec: 'ALAC',
+			lossless: true,
 			fileSize: 2048,
 			modifiedAtMs: 1_800_000_000_000,
 			album: inserted.album,
@@ -235,9 +243,21 @@ describe('library repository', () => {
 
 	it('lists the indexed files with the size and time the rescan compares', async () => {
 		await insertTrack(db, trackFile('/m/1.mp3'));
+		await insertTrack(db, trackFile('/m/2.mp3'));
+		// A track indexed before codecs were stored
+		await db
+			.update(tracks)
+			.set({ codec: null, lossless: null })
+			.where(eq(tracks.path, '/m/2.mp3'));
 
 		expect(await listIndexedFiles(db)).toEqual([
-			{ path: '/m/1.mp3', fileSize: 1024, modifiedAtMs: 1_700_000_000_000 },
+			{ path: '/m/1.mp3', fileSize: 1024, modifiedAtMs: 1_700_000_000_000, audioKnown: true },
+			{
+				path: '/m/2.mp3',
+				fileSize: 1024,
+				modifiedAtMs: 1_700_000_000_000,
+				audioKnown: false,
+			},
 		]);
 	});
 

@@ -39,6 +39,22 @@ describe('createTagReader', () => {
 		},
 	);
 
+	// ALAC and AAC share the .m4a extension: only the codec tells them apart
+	it.each([
+		['tone.flac', 'FLAC', true],
+		['tone-alac.m4a', 'ALAC', true],
+		['tone.wav', 'PCM', true],
+		['tone.aiff', 'PCM', true],
+		['tone.m4a', 'AAC', false],
+		['tone.mp3', 'MP3', false],
+		['tone.ogg', 'Vorbis', false],
+		['tone.opus', 'Opus', false],
+	])('reads the codec of %s as %s, lossless: %s', async (name, codec, lossless) => {
+		const result = await reader.read(fixture(name));
+
+		expect(result).toMatchObject({ ok: true, audio: { codec, lossless } });
+	});
+
 	it('reports a file that is not audio as unsupported', async () => {
 		const result = await reader.read(fixture('not-audio.txt'));
 

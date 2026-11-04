@@ -1,4 +1,4 @@
-import { trackTagsSchema, type TrackTags } from '@luz/core';
+import { trackAudioOf, trackTagsSchema, type TrackAudio, type TrackTags } from '@luz/core';
 import {
 	CouldNotDetermineFileTypeError,
 	UnsupportedFileTypeError,
@@ -19,9 +19,11 @@ export interface TagReadError {
 }
 
 // A result rather than an exception: a scan skips a bad file and keeps going
-export type TagReadResult = { ok: true; tags: TrackTags } | { ok: false; error: TagReadError };
+export type TagReadResult =
+	| { ok: true; tags: TrackTags; audio: TrackAudio }
+	| { ok: false; error: TagReadError };
 
-/** Reads the tags of an audio file without ever writing to it. */
+/** Reads the tags and the codec of an audio file without ever writing to it. */
 export interface TagReader {
 	read(filePath: string): Promise<TagReadResult>;
 }
@@ -35,7 +37,8 @@ export function createTagReader(): TagReader {
 				const { common, format } = await parseFile(filePath, { skipCovers: true });
 				const parsed = trackTagsSchema.safeParse(toTrackTags(common, format));
 				return parsed.success
-					? { ok: true, tags: parsed.data }
+					? // The codec, not the extension: ALAC and AAC both come as .m4a
+						{ ok: true, tags: parsed.data, audio: trackAudioOf(format.codec) }
 					: {
 							ok: false,
 							error: {
