@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDuration, type TrackSummary } from '@luz/core';
+import { formatBitrate, formatDuration, type TrackSummary } from '@luz/core';
 import type { TableColumn } from '@nuxt/ui';
 import { h } from 'vue';
 
@@ -27,6 +27,21 @@ const columns: TableColumn<TrackSummary>[] = [
 		meta: { class: { th: 'hidden sm:table-cell', td: 'hidden sm:table-cell' } },
 	},
 	{
+		// Kept on narrow screens: the format is what a file manager shows first
+		id: 'format',
+		header: 'Format',
+	},
+	{
+		id: 'bitrate',
+		header: 'Bitrate',
+		meta: {
+			class: {
+				th: 'hidden text-end sm:table-cell',
+				td: 'hidden text-end tabular-nums sm:table-cell',
+			},
+		},
+	},
+	{
 		id: 'duration',
 		header: 'Duration',
 		meta: { class: { th: 'text-end', td: 'text-end tabular-nums' } },
@@ -43,8 +58,19 @@ const columns: TableColumn<TrackSummary>[] = [
 	<UTable :data="tracks" :columns="columns" :caption="caption">
 		<template #position-cell="{ row }">{{ position(row.original) }}</template>
 		<template #title-cell="{ row }">
-			<span class="font-medium text-highlighted">{{ trackTitle(row.original) }}</span>
+			<div class="flex min-w-0 flex-col">
+				<span class="font-medium text-highlighted">{{ trackTitle(row.original) }}</span>
+				<!-- An untitled track already shows its file name as its title -->
+				<span
+					v-if="row.original.title !== null"
+					class="font-mono text-xs break-all text-muted"
+				>
+					{{ row.original.fileName }}
+				</span>
+			</div>
 		</template>
+		<template #format-cell="{ row }">{{ row.original.codec ?? '' }}</template>
+		<template #bitrate-cell="{ row }">{{ formatBitrate(row.original.bitrate) ?? '' }}</template>
 		<template #artist-cell="{ row }">{{ trackArtists(row.original) }}</template>
 		<template #duration-cell="{ row }">
 			{{ formatDuration(row.original.durationMs) ?? '' }}

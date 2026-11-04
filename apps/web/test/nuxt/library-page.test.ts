@@ -104,6 +104,8 @@ describe('library page', () => {
 				discNumber: 1,
 				year: 2001,
 				durationMs: 1000,
+				codec: 'FLAC',
+				bitrate: 900_000,
 				album: { id: 1, title: 'Alpha One' },
 				artist: { id: 1, name: 'Alpha' },
 			},

@@ -31,6 +31,8 @@ function track(id: number, overrides: Partial<TrackSummary> = {}): TrackSummary 
 		discNumber: 1,
 		year: 2001,
 		durationMs: 61_000,
+		codec: 'FLAC',
+		bitrate: 900_000,
 		album: alphaOne,
 		artist: alpha,
 		...overrides,
@@ -159,6 +161,7 @@ describe('library views', () => {
 			year: 2001,
 			trackCount: 3,
 			quality: 'lossless',
+			folders: ['/music/Alpha/Alpha One/CD1', '/music/Alpha/Alpha One/CD2'],
 			tracks: [
 				track(1),
 				track(2),
@@ -295,6 +298,46 @@ describe('library views', () => {
 		expect(rows[0]).toContain('1.1');
 		expect(rows[2]).toContain('2.1');
 		expect(rows[2]).toContain('Alpha, Guest');
+	});
+
+	it('shows the folders of an album, each with a button copying its path', async () => {
+		const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+		const wrapper = await mountAt('/library/albums/10');
+
+		expect(wrapper.text()).toContain('Folders');
+		expect(wrapper.findAll('code').map((code) => code.text())).toEqual([
+			'/music/Alpha/Alpha One/CD1',
+			'/music/Alpha/Alpha One/CD2',
+		]);
+		const copy = wrapper.find('button[aria-label="Copy path /music/Alpha/Alpha One/CD2"]');
+		expect(copy.text()).toBe('Copy path');
+		await copy.trigger('click');
+
+		expect(writeText).toHaveBeenCalledWith('/music/Alpha/Alpha One/CD2');
+		await vi.waitFor(() => {
+			expect(copy.text()).toBe('Copied');
+		});
+		writeText.mockRestore();
+	});
+
+	it('shows the file name, format and bitrate of each track of an album', async () => {
+		album.tracks = [
+			track(1),
+			track(2, { title: null, fileName: 'untitled.mp3', codec: 'MP3', bitrate: 245_600 }),
+			track(3, { codec: null, bitrate: null }),
+		];
+		const wrapper = await mountAt('/library/albums/10');
+
+		const header = wrapper.findAll('thead th').map((cell) => cell.text());
+		expect(header).toEqual(expect.arrayContaining(['Format', 'Bitrate']));
+		const rows = wrapper.findAll('tbody tr').map((row) => row.text());
+		expect(rows[0]).toContain('1.flac');
+		expect(rows[0]).toContain('FLAC');
+		expect(rows[0]).toContain('900 kbps');
+		// An untitled track already shows its file name as its title, once
+		expect(rows[1]?.split('untitled.mp3')).toHaveLength(2);
+		expect(rows[1]).toContain('246 kbps');
+		expect(rows[2]).not.toContain('kbps');
 	});
 
 	it('shows an artist with each album and its tracks', async () => {

@@ -22,6 +22,8 @@ function track(id: number, overrides: Partial<TrackSummary> = {}): TrackSummary 
 		discNumber: 1,
 		year: 2006,
 		durationMs: 240_000,
+		codec: 'FLAC',
+		bitrate: 900_000,
 		album: bDay,
 		artist: beyonce,
 		...overrides,

@@ -65,6 +65,9 @@ export interface TrackSummary {
 	discNumber: number | null;
 	year: number | null;
 	durationMs: number | null;
+	// `null` until a scan reads the file again, for a track indexed before codecs were stored
+	codec: string | null;
+	bitrate: number | null;
 	album: { id: number; title: string | null };
 	artist: { id: number; name: string | null };
 }
@@ -98,10 +101,8 @@ export interface TrackDetail extends TrackSummary {
 	genre: string | null;
 	fileSize: number;
 	modifiedAtMs: number;
-	codec: string | null;
 	codecProfile: string | null;
 	lossless: boolean | null;
-	bitrate: number | null;
 	sampleRate: number | null;
 	bitDepth: number | null;
 	channels: number | null;
@@ -109,6 +110,9 @@ export interface TrackDetail extends TrackSummary {
 
 /** An album with its tracks, by disc then track number. */
 export interface AlbumDetail extends AlbumSummary {
+	// The absolute folders holding its tracks, sorted: usually one, several when the discs or
+	// tracks of one album sit in different folders
+	folders: string[];
 	tracks: TrackSummary[];
 }
 

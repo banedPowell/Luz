@@ -26,6 +26,7 @@ if (error.value) {
 				· {{ plural(data.trackCount, 'track') }}
 			</p>
 		</div>
+		<AlbumFolders :folders="data.folders" />
 		<AlbumTracks :tracks="data.tracks" :caption="`Tracks of ${albumTitle(data.title)}`" />
 	</section>
 </template>

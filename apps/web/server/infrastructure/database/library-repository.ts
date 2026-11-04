@@ -1,4 +1,4 @@
-import { basename } from 'node:path';
+import { basename, dirname } from 'node:path';
 import {
 	albumOf,
 	albumQuality,
@@ -358,6 +358,8 @@ function selectTracks(db: Database) {
 			discNumber: tracks.discNumber,
 			year: tracks.year,
 			durationMs: tracks.durationMs,
+			codec: tracks.codec,
+			bitrate: tracks.bitrate,
 			album: { id: albums.id, title: albums.title },
 			artist: { id: artists.id, name: artists.name },
 		})
@@ -371,6 +373,11 @@ type TrackRow = Awaited<ReturnType<typeof selectTracks>>[number];
 // The path stays on the server; the file name stands in for a missing title
 function toTrackSummary({ path: filePath, ...row }: TrackRow): TrackSummary {
 	return { ...row, fileName: basename(filePath) };
+}
+
+// An album has no folder of its own: it is wherever its files are, possibly several places
+function foldersOf(rows: readonly Pick<TrackRow, 'path'>[]): string[] {
+	return [...new Set(rows.map((row) => dirname(row.path)))].toSorted();
 }
 
 // Inner joins: an album or artist always has tracks, empty groups being pruned
@@ -493,7 +500,7 @@ export async function findAlbum(db: Database, id: number): Promise<AlbumDetail |
 	const rows = await selectTracks(db)
 		.where(eq(tracks.albumId, id))
 		.orderBy(...inAlbumOrder, asc(tracks.id));
-	return { ...toAlbumSummary(album), tracks: rows.map(toTrackSummary) };
+	return { ...toAlbumSummary(album), folders: foldersOf(rows), tracks: rows.map(toTrackSummary) };
 }
 
 /** An artist with its albums, oldest first, each with its tracks; `undefined` if there is none with this id. */
@@ -510,13 +517,17 @@ export async function findArtist(db: Database, id: number): Promise<ArtistDetail
 	const trackRows = await selectTracks(db)
 		.where(eq(albums.artistId, id))
 		.orderBy(...inAlbumOrder, asc(tracks.id));
-	const tracksByAlbum = Map.groupBy(trackRows.map(toTrackSummary), (track) => track.album.id);
+	const rowsByAlbum = Map.groupBy(trackRows, (track) => track.album.id);
 	return {
 		...artist,
-		albums: albumRows.map((album) => ({
-			...toAlbumSummary(album),
-			tracks: tracksByAlbum.get(album.id) ?? [],
-		})),
+		albums: albumRows.map((album) => {
+			const rows = rowsByAlbum.get(album.id) ?? [];
+			return {
+				...toAlbumSummary(album),
+				folders: foldersOf(rows),
+				tracks: rows.map(toTrackSummary),
+			};
+		}),
 	};
 }
 

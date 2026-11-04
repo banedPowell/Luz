@@ -293,6 +293,27 @@ describe('library browse', () => {
 		expect(album?.tracks[2]?.artists).toBe('Alpha, Guest');
 	});
 
+	it('gives an album the folders of its tracks, once each and sorted', async () => {
+		const music = path.join(dataDir, 'music');
+		const tags = { album: 'Split', albumArtist: 'Gamma' };
+		await add(path.join('Split', 'CD2', '01.flac'), { ...tags, discNumber: 2 });
+		const first = await add(path.join('Split', 'CD1', '01.flac'), { ...tags, discNumber: 1 });
+		await add(path.join('Split', 'CD1', '02.flac'), { ...tags, discNumber: 1 });
+
+		const album = await getAlbum(db, first.album.id);
+		const artist = await getArtist(db, first.artist.id);
+
+		const folders = [path.join(music, 'Split', 'CD1'), path.join(music, 'Split', 'CD2')];
+		expect(album?.folders).toEqual(folders);
+		expect(artist?.albums[0]?.folders).toEqual(folders);
+	});
+
+	it('gives each track of a list its codec and bitrate', async () => {
+		await add('coded.mp3', { title: 'Coded' });
+
+		expect((await tracks({})).items[0]).toMatchObject({ codec: 'MP3', bitrate: null });
+	});
+
 	it('returns an artist with its albums, oldest first, and their tracks', async () => {
 		await addLibrary();
 		const beta = (await browseArtists(db, artistListQuerySchema.parse({}))).items[1];
