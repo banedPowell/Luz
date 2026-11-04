@@ -102,7 +102,9 @@ const sections = computed<Section[]>(() => {
 		variant="subtle"
 		:icon="useAppConfig().ui.icons.error"
 		title="The details of this track could not be loaded"
-		:description="error.statusCode === 404 ? 'It is no longer in the library.' : error.message"
+		:description="
+			error.statusCode === 404 ? 'It is no longer in the library.' : 'Try again in a moment.'
+		"
 	/>
 	<div v-else-if="track" class="flex flex-col gap-6">
 		<UAlert

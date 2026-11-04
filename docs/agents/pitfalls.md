@@ -38,6 +38,7 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 - **Nitro 2 plugins are synchronous**: `runNitroPlugins` does not await them, and they run in the alphabetical order of `server/plugins/`. Read v2.nitro.build, not nitro.build (Nitro 3).
 - **The Nitro 2 `request` hook is awaited but its errors are swallowed**: the database plugin logs the failure once and `useDatabase()` rethrows it to every caller.
 - **drizzle-orm's migrator reads a folder on disk**, absent from `.output`: migrations are a Nitro server asset applied by our own runner. Never call drizzle's `migrate()` on the server.
+- **Never regenerate a migration a database may have applied**, even unmerged: a branch's dev database applies it at startup. The runner applies every migration newer than the last applied date, so the rewritten one runs again and the server fails to start (`duplicate column`). Add a new migration; `database.test.ts` pins the applied ones by hash.
 - **orm.drizzle.team documents the 1.0 RC**; the installed 0.45 sometimes differs. Check the page version or the types in `node_modules`.
 - **libSQL's native binary is missing from `.output`** without `nitro.externals.traceInclude` (computed `require`). Only the build platform's binary is installed: build where the server runs.
 - **`NUXT_*` variables go through destr**: `NUXT_DATA_DIR=123` arrives as a number, and the Zod schema rejects it at startup. The `.env` file is read by the Nuxt CLI only, never by `node .output/server/index.mjs`.
