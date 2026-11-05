@@ -12,6 +12,7 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 - **pnpm blocks dependency build scripts**: allow (or explicitly refuse, like `vue-demi`) them in `allowBuilds` of `pnpm-workspace.yaml`, and justify it in the PR.
 - **"unmet peer vite"** means `vite` or `vitest` is no longer on `catalog:`; the catalog and overrides from `vp migrate` fix it.
 - **Stale auto-import types after a pull**: `vp check` fails with TS2304 (`Cannot find name 'useSettings'`) on untouched files. `vp install` does not regenerate `.nuxt` when nothing changes; run `npx nuxt prepare` in `apps/web`. Same after changing `nitro.typescript` config.
+- **A `//` inside a static template attribute breaks vue-tsc** (`@vue/language-core` 3.3.14): `placeholder="https://"` becomes broken virtual TS, the syntax error is hidden, and every later expression of the template loses its ref unwrapping. It shows up as `'icons.value' is possibly 'undefined'` or `'appConfig.value' is of type 'unknown'` on plain constants. Keep `//` out of static attribute values (rephrase, or bind a script constant).
 - **`core` imports its own files with a `.ts` extension** (`allowImportingTsExtensions`), since it is consumed from sources. Its tsconfig has no Node or DOM types on purpose: a `node:*` import fails the typecheck.
 
 ## Tests

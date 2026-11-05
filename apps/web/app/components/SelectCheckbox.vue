@@ -17,7 +17,6 @@ const checked = defineModel<SelectAllState>({ required: true });
 		:ui="{
 			root: 'items-center',
 			base: 'relative overflow-visible after:absolute after:-inset-3 md:after:-inset-2',
-			indicator: 'rounded-sm',
 		}"
 	/>
 </template>
