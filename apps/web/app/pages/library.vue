@@ -31,7 +31,8 @@ const views = computed<NavigationMenuItem[]>(() => [
 		:actions="[{ label: 'Open settings', to: '/settings', icon: appConfig.ui.icons.folder }]"
 	/>
 
-	<div v-else class="mx-auto flex w-full max-w-5xl flex-col gap-6">
+	<!-- Tables use the width up to about 1440 px; reading pages such as Settings stay narrower -->
+	<div v-else class="mx-auto flex w-full max-w-360 flex-col gap-6">
 		<LibraryScan :music-library-path="settings?.musicLibraryPath ?? ''" />
 		<!-- On narrow screens the field goes under the views, as in the tab order -->
 		<div

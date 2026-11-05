@@ -18,28 +18,28 @@ const sortOptions = [
 	{ label: 'Date added', value: 'added' },
 ] as const;
 
-// Narrow screens keep the title, with its artist, and the album
+// Narrow screens keep compact rows: cover, title with its artist, and the format
 const wide = 'hidden md:table-cell';
 
 const columns: TableColumn<TrackSummary>[] = [
 	// The checkboxes of the selection bar
 	{ id: 'select', meta: { class: { th: 'w-px pe-0', td: 'w-px pe-0' } } },
-	// Narrow screens show compact rows, cover then title, as the interface principles ask
 	{
 		id: 'number',
 		header: '#',
-		meta: {
-			class: {
-				th: 'hidden sm:table-cell',
-				td: 'hidden w-12 tabular-nums text-muted sm:table-cell',
-			},
-		},
+		meta: { class: { th: wide, td: `${wide} w-12 tabular-nums text-muted` } },
 	},
-	{ id: 'title', ...sortable('Title') },
+	// Under md, max-w-0 lets the title shrink to the room the row leaves, truncated, so the
+	// compact row fits without scrolling; from md the columns share the width as usual
+	{
+		id: 'title',
+		...sortable('Title'),
+		meta: { class: { td: 'w-full max-w-0 md:w-auto md:max-w-none' } },
+	},
 	{
 		id: 'album',
 		...sortable('Album'),
-		meta: { class: { th: 'hidden sm:table-cell', td: 'hidden sm:table-cell' } },
+		meta: { class: { th: wide, td: wide } },
 	},
 	{
 		id: 'duration',
@@ -103,9 +103,11 @@ function rowNumber(index: number): number {
 					<AlbumCover
 						:album="row.original.album.title"
 						:artist="row.original.artist.name"
-						class="size-8"
+						class="size-8 shrink-0"
 					/>
 					<TrackTitle :track="row.original" />
+					<!-- Stands in for the hidden columns of a compact row -->
+					<TrackFormat :track="row.original" class="ms-auto md:hidden" />
 				</div>
 			</template>
 			<template #album-cell="{ row }">

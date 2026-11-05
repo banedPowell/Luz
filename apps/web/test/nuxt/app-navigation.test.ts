@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { defineComponent, h } from 'vue';
 
 describe('AppNavigation', () => {
-	it('links to every section of the app', async () => {
+	it('links to the sections of the app, without Settings', async () => {
 		const wrapper = await mountSuspended(AppNavigation);
 
 		const links = wrapper.findAll('a').map((link) => ({
@@ -16,8 +16,25 @@ describe('AppNavigation', () => {
 			{ label: 'Home', href: '/' },
 			{ label: 'Library', href: '/library' },
 			{ label: 'Downloads', href: '/downloads' },
-			{ label: 'Settings', href: '/settings' },
 		]);
+	});
+
+	it('keeps Settings for the bottom of the sidebar, in its own landmark', async () => {
+		const wrapper = await mountSuspended(AppNavigation, { props: { placement: 'footer' } });
+
+		const links = wrapper.findAll('a').map((link) => link.attributes('href'));
+
+		expect(links).toEqual(['/settings']);
+		expect(wrapper.find('nav[aria-label="Secondary"]').exists()).toBe(true);
+	});
+
+	it('marks Settings as current on its own page', async () => {
+		const wrapper = await mountSuspended(AppNavigation, {
+			props: { placement: 'footer' },
+			route: '/settings',
+		});
+
+		expect(wrapper.find('a[aria-current="page"]').text()).toBe('Settings');
 	});
 
 	it('marks only the current section with aria-current', async () => {
@@ -46,7 +63,7 @@ describe('AppNavigation', () => {
 		// collapsed, the name must come from aria-label
 		const names = wrapper.findAll('a').map((link) => link.attributes('aria-label'));
 
-		expect(names).toEqual(['Home', 'Library', 'Downloads', 'Settings']);
+		expect(names).toEqual(['Home', 'Library', 'Downloads']);
 	});
 
 	it('names expanded links by their visible label only', async () => {

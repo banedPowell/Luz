@@ -12,12 +12,12 @@ const title = computed(() => props.title ?? findNavigationEntry(route.path)?.lab
 useHead({ titleTemplate: (page) => (page ? `${page} · Luz` : 'Luz') });
 useSeoMeta({ title });
 
-// Below the sidebar breakpoint (lg) the sidebar is an overlay menu: close it
-// once a link is followed. On desktop the user's collapse choice is kept.
+// Below the sidebar breakpoint (md, as the interface principles ask) the sidebar
+// is a drawer: close it once a link is followed. Wider, the collapse choice is kept.
 watch(
 	() => route.path,
 	() => {
-		if (!window.matchMedia('(min-width: 64rem)').matches) {
+		if (!window.matchMedia('(min-width: 48rem)').matches) {
 			open.value = false;
 		}
 	},
@@ -37,6 +37,7 @@ watch(
 		<USidebar
 			v-model:open="open"
 			variant="inset"
+			breakpoint="md"
 			collapsible="icon"
 			rail
 			:ui="{ container: 'h-full' }"
@@ -57,12 +58,16 @@ watch(
 			</template>
 
 			<template #footer="{ state }">
-				<ThemeSelect :collapsed="state === 'collapsed'" />
+				<!-- The account menu will go here, under Settings: nothing is drawn before accounts exist -->
+				<div class="flex w-full flex-col gap-3">
+					<ThemeSelect :collapsed="state === 'collapsed'" />
+					<AppNavigation placement="footer" :collapsed="state === 'collapsed'" />
+				</div>
 			</template>
 		</USidebar>
 
 		<div
-			class="flex flex-1 flex-col overflow-hidden bg-default lg:peer-data-[variant=inset]:m-4 lg:peer-data-[variant=inset]:not-peer-data-[collapsible=offcanvas]:ms-0 lg:peer-data-[variant=inset]:rounded-xl lg:peer-data-[variant=inset]:shadow-sm lg:peer-data-[variant=inset]:ring lg:peer-data-[variant=inset]:ring-default"
+			class="flex flex-1 flex-col overflow-hidden bg-default md:peer-data-[variant=inset]:m-4 md:peer-data-[variant=inset]:not-peer-data-[collapsible=offcanvas]:ms-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:ring md:peer-data-[variant=inset]:ring-default"
 		>
 			<header
 				class="flex h-(--ui-header-height) shrink-0 items-center gap-3 border-b border-default px-4"

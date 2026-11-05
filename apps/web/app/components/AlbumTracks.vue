@@ -30,15 +30,20 @@ const columns: TableColumn<TrackSummary>[] = [
 	// The checkboxes of the selection bar
 	{ id: 'select', meta: { class: { th: 'w-px pe-0', td: 'w-px pe-0' } } },
 	{ id: 'position', header: '#', meta: { class: { td: 'w-12 tabular-nums text-muted' } } },
-	// The artist sits under the title; the album is the page itself
-	{ id: 'title', header: 'Title' },
+	// The artist sits under the title; the album is the page itself. Under md the row is
+	// compact, title then format, and max-w-0 lets the title shrink so it fits without scrolling
+	{
+		id: 'title',
+		header: 'Title',
+		meta: { class: { td: 'w-full max-w-0 md:w-auto md:max-w-none' } },
+	},
 	{
 		id: 'duration',
 		header: 'Duration',
 		meta: {
 			class: {
-				th: 'hidden text-end sm:table-cell',
-				td: 'hidden text-end tabular-nums sm:table-cell',
+				th: 'hidden text-end md:table-cell',
+				td: 'hidden text-end tabular-nums md:table-cell',
 			},
 		},
 	},
@@ -73,7 +78,13 @@ const columns: TableColumn<TrackSummary>[] = [
 				/>
 			</template>
 			<template #position-cell="{ row }">{{ position(row.original) }}</template>
-			<template #title-cell="{ row }"><TrackTitle :track="row.original" /></template>
+			<template #title-cell="{ row }">
+				<div class="flex items-center gap-3">
+					<TrackTitle :track="row.original" />
+					<!-- Stands in for the hidden columns of a compact row -->
+					<TrackFormat :track="row.original" class="ms-auto md:hidden" />
+				</div>
+			</template>
 			<template #duration-cell="{ row }">
 				{{ formatDuration(row.original.durationMs) ?? '' }}
 			</template>

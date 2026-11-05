@@ -109,6 +109,16 @@ describe('library search', () => {
 		expect(artists.text()).toContain('1 album · 2 tracks');
 	});
 
+	it('shows the format of each track found, nothing when it is unknown', async () => {
+		result.tracks.items = [track(1), track(2, { codec: null })];
+
+		const wrapper = await mountAt('/library/search?q=beyonce');
+
+		const tracks = wrapper.findAll('section[aria-labelledby="search-tracks"] li');
+		expect(tracks[0]?.find('span.text-xs').text()).toBe('FLAC');
+		expect(tracks[1]?.find('span.text-xs').exists()).toBe(false);
+	});
+
 	it('leaves out the groups without results', async () => {
 		result = { ...result, tracks: none, artists: none };
 
