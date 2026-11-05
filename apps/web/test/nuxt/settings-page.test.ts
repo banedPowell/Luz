@@ -1,5 +1,6 @@
 import {
 	defaultNamingTemplate,
+	outputFormatLabels,
 	settingsPatchSchema,
 	type Settings,
 	type SettingsPatch,
@@ -38,9 +39,12 @@ registerEndpoint('/api/settings', {
 		// Parsed like the API does, so the page gets the trimmed values back
 		const patch = settingsPatchSchema.parse(body);
 		const namingTemplate = patch.namingTemplate ?? stored.namingTemplate;
+		const outputFormat = patch.outputFormat ?? stored.outputFormat;
 		const musicLibraryPath =
 			patch.musicLibraryPath === undefined ? stored.musicLibraryPath : patch.musicLibraryPath;
-		stored = musicLibraryPath ? { musicLibraryPath, namingTemplate } : { namingTemplate };
+		stored = musicLibraryPath
+			? { musicLibraryPath, namingTemplate, outputFormat }
+			: { namingTemplate, outputFormat };
 		return stored;
 	},
 });
@@ -72,7 +76,11 @@ async function mountPage() {
 
 describe('settings page', () => {
 	beforeEach(() => {
-		stored = { musicLibraryPath: '/music', namingTemplate: '{artist}/{title}' };
+		stored = {
+			musicLibraryPath: '/music',
+			namingTemplate: '{artist}/{title}',
+			outputFormat: 'mp3-320',
+		};
 		useColorMode().preference = 'dark';
 		getFails = false;
 		patches.length = 0;
@@ -98,7 +106,11 @@ describe('settings page', () => {
 
 		await vi.waitFor(() => {
 			expect(patches).toEqual([
-				{ musicLibraryPath: '/music', namingTemplate: '{artist}/{title}' },
+				{
+					musicLibraryPath: '/music',
+					namingTemplate: '{artist}/{title}',
+					outputFormat: 'mp3-320',
+				},
 			]);
 		});
 	});
@@ -107,7 +119,9 @@ describe('settings page', () => {
 		const wrapper = await mountPage();
 
 		const labels = wrapper.findAll('label').map((label) => label.text());
-		expect(labels).toEqual(expect.arrayContaining(['Theme', 'Music library', 'File names']));
+		expect(labels).toEqual(
+			expect.arrayContaining(['Theme', 'Music library', 'File names', 'Download format']),
+		);
 		const input = wrapper.find('input');
 		expect(wrapper.find(`label[for="${input.attributes('id')}"]`).exists()).toBe(true);
 	});
@@ -132,7 +146,11 @@ describe('settings page', () => {
 
 		await vi.waitFor(() => {
 			expect(patches).toEqual([
-				{ musicLibraryPath: null, namingTemplate: '{artist}/{title}' },
+				{
+					musicLibraryPath: null,
+					namingTemplate: '{artist}/{title}',
+					outputFormat: 'mp3-320',
+				},
 			]);
 		});
 		await vi.waitFor(() => {
@@ -177,12 +195,22 @@ describe('settings page', () => {
 
 		await vi.waitFor(() => {
 			expect(patches).toEqual([
-				{ musicLibraryPath: '/music', namingTemplate: ' {album}/{track:02} {title} ' },
+				{
+					musicLibraryPath: '/music',
+					namingTemplate: ' {album}/{track:02} {title} ',
+					outputFormat: 'mp3-320',
+				},
 			]);
 		});
 		await vi.waitFor(() => {
 			expect(namingInput(wrapper).element.value).toBe('{album}/{track:02} {title}');
 		});
+	});
+
+	it('shows the saved download format', async () => {
+		const wrapper = await mountPage();
+
+		expect(wrapper.find('form').text()).toContain(outputFormatLabels['mp3-320']);
 	});
 
 	it('warns when the settings cannot be loaded', async () => {

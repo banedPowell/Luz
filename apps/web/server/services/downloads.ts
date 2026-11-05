@@ -2,16 +2,20 @@ import path from 'node:path';
 
 import {
 	appendToLog,
+	downloadedFiles,
 	downloadFailureFromAnalysis,
 	finishedJobState,
 	isFinishedState,
+	outputTarget,
 	shouldPublishProgress,
 	toItemUpdate,
 	toJobUpdate,
 	type DownloadEvent,
 	type CreateDownloadRequest,
+	type DownloadFailureReason,
 	type DownloadItem,
 	type DownloadJob,
+	type DownloadStep,
 } from '@luz/core';
 
 import type { Database } from '../infrastructure/database/client';
@@ -23,10 +27,13 @@ import {
 	insertDownloadJob,
 	nextQueuedJob,
 	runningDownloadJobIds,
+	setDownloadItemStep,
 	startDownloadItem,
 	startDownloadJob,
 	updateDownloadItemProgress,
 } from '../infrastructure/database/download-repository';
+import type { Ffmpeg } from '../infrastructure/ffmpeg';
+import type { TagReader } from '../infrastructure/tag-reader';
 import type { YtDlp } from '../infrastructure/yt-dlp';
 import { analyzeUrl, type AnalysisDependencies } from './download-analysis';
 
@@ -60,6 +67,7 @@ export async function createDownload(
 			url: request.url,
 			kind: preview.kind,
 			title: preview.title,
+			outputFormat: request.outputFormat ?? analysis.settings.outputFormat,
 			// In the order of the analysis, whatever the order of the selection
 			items: preview.items
 				.filter((item) => selected.has(item.sourceId))
@@ -84,8 +92,12 @@ export async function createDownload(
 export interface DownloadQueueDependencies {
 	db: Database;
 	ytDlp: YtDlp;
+	ffmpeg: Ffmpeg;
+	/** Reads the codec of a download, which picks the container of the source format. */
+	tagReader: TagReader;
 	/** `<dataDir>/downloads`: each job writes to its own folder inside. */
 	downloadsDirectory: string;
+	listFileNames: (directory: string) => Promise<string[]>;
 	createDirectory: (directory: string) => Promise<void>;
 	removeDirectory: (directory: string) => Promise<void>;
 	/** Where job and item updates go, for the stream of events. */
@@ -109,8 +121,18 @@ export interface DownloadQueue {
 
 /** One job at a time, items one by one, in creation order (ADR 0007). */
 export function createDownloadQueue(dependencies: DownloadQueueDependencies): DownloadQueue {
-	const { db, ytDlp, downloadsDirectory, createDirectory, removeDirectory, events, logger } =
-		dependencies;
+	const {
+		db,
+		ytDlp,
+		ffmpeg,
+		tagReader,
+		downloadsDirectory,
+		listFileNames,
+		createDirectory,
+		removeDirectory,
+		events,
+		logger,
+	} = dependencies;
 	const now = dependencies.now ?? Date.now;
 	const jobDirectory = (jobId: number) => path.join(downloadsDirectory, String(jobId));
 
@@ -215,79 +237,172 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 	) {
 		await startDownloadItem(db, item.id);
 		await publish(job.id, [item.id]);
-		// A playlist item without its own address cannot be downloaded alone
-		const url = item.url ?? (job.kind === 'track' ? job.url : undefined);
-		if (url === undefined) {
+		let log: string[] = [];
+		const onLine = (line: string) => {
+			log = appendToLog(log, [line]);
+		};
+		const end = async (outcome: 'completed' | DownloadFailureReason) => {
 			await finishDownloadItem(
 				db,
 				{ id: item.id, jobId: job.id },
-				{
-					state: 'failed',
-					errorReason: 'failed',
-					log: ['yt-dlp gave no address for this item.'],
-				},
+				outcome === 'completed'
+					? { state: 'completed', log }
+					: { state: 'failed', errorReason: outcome, log },
 			);
 			await publish(job.id, [item.id]);
+		};
+		// A playlist item without its own address cannot be downloaded alone
+		const url = item.url ?? (job.kind === 'track' ? job.url : undefined);
+		if (url === undefined) {
+			onLine('yt-dlp gave no address for this item.');
+			await end('failed');
 			return;
 		}
-		let log: string[] = [];
-		// Progress is written in order, one write at a time, and always before the item ends
-		let writes = Promise.resolve();
-		let lastProgress: { percent: number; atMs: number } | undefined;
-		const result = await ytDlp.download(url, {
+		const downloading = progressReporter(job.id, item.id, 'downloading', signal);
+		const download = await ytDlp.download(url, {
 			directory,
 			fileStem: String(item.id),
 			signal,
-			onLine: (line) => {
-				log = appendToLog(log, [line]);
+			onLine,
+			onProgress: (progress) =>
+				downloading.report(progress.percent, progress.speedBytesPerSecond),
+		});
+		await downloading.settled();
+		// Aborted: ended with the job, as cancelled, or left running for the restart to find
+		if (!download.ok) {
+			if (download.reason !== 'aborted') {
+				await end(downloadFailureFromAnalysis(download.reason));
+			}
+			return;
+		}
+		const outcome = await convert(job, item, directory, signal, onLine);
+		if (outcome !== 'aborted') {
+			await end(outcome);
+		}
+	}
+
+	/**
+	 * Turns the downloaded audio into the file of the job's format, with its tags and its
+	 * cover, beside it in the job folder: `<itemId>.converted.<ext>`.
+	 */
+	async function convert(
+		job: DownloadJob,
+		item: DownloadItem,
+		directory: string,
+		signal: AbortSignal,
+		onLine: (line: string) => void,
+	): Promise<'completed' | 'aborted' | DownloadFailureReason> {
+		const stem = String(item.id);
+		const files = downloadedFiles(await listFileNames(directory), stem);
+		if (files.audio === undefined) {
+			onLine('yt-dlp wrote no audio file.');
+			return 'failed';
+		}
+		const audio = path.join(directory, files.audio);
+		const target =
+			job.outputFormat === 'source'
+				? outputTarget('source', await readCodec(audio, onLine))
+				: outputTarget(job.outputFormat);
+		if (target === undefined) {
+			return 'unsupported-source';
+		}
+		await setDownloadItemStep(db, item.id, 'converting');
+		await publish(job.id, [item.id]);
+
+		let cover: string | undefined;
+		if (files.thumbnail !== undefined) {
+			const square = path.join(directory, `${stem}.square.jpg`);
+			const result = await ffmpeg.squareCover(path.join(directory, files.thumbnail), square, {
+				signal,
+				onLine,
+			});
+			if (result.ok) {
+				cover = square;
+			} else if (result.reason !== 'failed') {
+				return result.reason === 'aborted' ? 'aborted' : 'ffmpeg-unavailable';
+			} else {
+				// A thumbnail FFmpeg cannot read is no reason to lose the track
+				onLine('The thumbnail could not be made into a cover: the file has none.');
+			}
+		}
+
+		const converting = progressReporter(job.id, item.id, 'converting', signal);
+		const result = await ffmpeg.convert(
+			{
+				audio,
+				tags: item.tags,
+				...(cover === undefined ? {} : { cover }),
+				metadataFile: path.join(directory, `${stem}.tags.ffmetadata`),
+				output: path.join(directory, `${stem}.converted${target.extension}`),
+				target,
+				...(item.tags.durationMs === undefined ? {} : { durationMs: item.tags.durationMs }),
 			},
-			onProgress: (progress) => {
+			{ signal, onLine, onProgress: (percent) => converting.report(percent) },
+		);
+		await converting.settled();
+		if (result.ok) {
+			return 'completed';
+		}
+		if (result.reason === 'aborted') {
+			return 'aborted';
+		}
+		return result.reason === 'tool-unavailable' ? 'ffmpeg-unavailable' : 'conversion';
+	}
+
+	/** The codec of a downloaded file, which picks the container of the source format. */
+	async function readCodec(audio: string, onLine: (line: string) => void) {
+		const read = await tagReader.read(audio);
+		if (!read.ok) {
+			onLine(`Could not read the codec of the download: ${read.error.message}`);
+			return null;
+		}
+		return read.audio.codec;
+	}
+
+	/**
+	 * Writes and sends the progress of an item's step, throttled. Writes go in order, one at
+	 * a time; `settled()` resolves once the last one is done, before the item ends.
+	 */
+	function progressReporter(
+		jobId: number,
+		itemId: number,
+		step: DownloadStep,
+		signal: AbortSignal,
+	) {
+		let writes = Promise.resolve();
+		let last: { percent: number; atMs: number } | undefined;
+		return {
+			report(percent: number, speedBytesPerSecond?: number) {
 				const atMs = now();
-				if (
-					signal.aborted ||
-					!shouldPublishProgress(lastProgress, progress.percent, atMs)
-				) {
+				if (signal.aborted || !shouldPublishProgress(last, percent, atMs)) {
 					return;
 				}
-				lastProgress = { percent: progress.percent, atMs };
+				last = { percent, atMs };
+				const speed = speedBytesPerSecond === undefined ? {} : { speedBytesPerSecond };
 				writes = writes
-					.then(() => updateDownloadItemProgress(db, item.id, progress))
+					.then(() => updateDownloadItemProgress(db, itemId, { percent, ...speed }))
 					.then(() => {
 						events.emit({
 							type: 'item',
-							jobId: job.id,
+							jobId,
 							item: {
-								id: item.id,
+								id: itemId,
 								state: 'running',
-								step: 'downloading',
-								progressPercent: progress.percent,
-								...(progress.speedBytesPerSecond === undefined
-									? {}
-									: { speedBytesPerSecond: progress.speedBytesPerSecond }),
+								step,
+								progressPercent: percent,
+								...speed,
 							},
 						});
 					})
 					.catch((error: unknown) => {
 						logger.error(
-							`Could not record the progress of download item ${item.id}`,
+							`Could not record the progress of download item ${itemId}`,
 							error,
 						);
 					});
 			},
-		});
-		await writes;
-		if (!result.ok && result.reason === 'aborted') {
-			// Ended with the job, as cancelled, or left running for the restart to find
-			return;
-		}
-		await finishDownloadItem(
-			db,
-			{ id: item.id, jobId: job.id },
-			result.ok
-				? { state: 'completed', log }
-				: { state: 'failed', errorReason: downloadFailureFromAnalysis(result.reason), log },
-		);
-		await publish(job.id, [item.id]);
+			settled: () => writes,
+		};
 	}
 
 	async function cancel(jobId: number): Promise<CancelOutcome> {

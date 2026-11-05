@@ -21,12 +21,23 @@ import {
 	startDownloadJob,
 } from '../../server/infrastructure/database/download-repository';
 import { applyMigrations, loadMigrations } from '../../server/infrastructure/database/migrations';
-import { createDirectory, removeDirectory } from '../../server/infrastructure/file-system';
+import type {
+	Conversion,
+	Ffmpeg,
+	FfmpegResult,
+	RunHooks,
+} from '../../server/infrastructure/ffmpeg';
+import {
+	createDirectory,
+	listFileNames,
+	removeDirectory,
+} from '../../server/infrastructure/file-system';
 import {
 	createProcessRunner,
 	type ProcessRunner,
 	type RunOptions,
 } from '../../server/infrastructure/process-runner';
+import type { TagReader } from '../../server/infrastructure/tag-reader';
 import {
 	createYtDlp,
 	type DownloadOptions,
@@ -105,6 +116,7 @@ class FakeYtDlp implements YtDlp {
 		options.onLine?.('[download] 100% of 5.00KiB');
 		this.progress(options, 100, 301);
 		await writeFile(path.join(options.directory, `${options.fileStem}.webm`), 'audio');
+		await writeFile(path.join(options.directory, `${options.fileStem}.cover.webp`), 'image');
 		return { ok: true };
 	}
 
@@ -115,15 +127,68 @@ class FakeYtDlp implements YtDlp {
 	}
 }
 
+/**
+ * Stands in for FFmpeg: a cover or a conversion succeeds and writes its output, unless told
+ * to fail. A conversion reports 40 then 100 percent. Records every conversion.
+ */
+class FakeFfmpeg implements Ffmpeg {
+	conversions: Conversion[] = [];
+	coverResult: FfmpegResult = { ok: true };
+	convertResult: FfmpegResult = { ok: true };
+
+	async squareCover(_input: string, output: string): Promise<FfmpegResult> {
+		if (this.coverResult.ok) {
+			await writeFile(output, 'jpeg');
+		}
+		return this.coverResult;
+	}
+
+	async convert(
+		conversion: Conversion,
+		hooks: RunHooks & { onProgress?: (percent: number) => void } = {},
+	): Promise<FfmpegResult> {
+		this.conversions.push(conversion);
+		if (!this.convertResult.ok) {
+			hooks.onLine?.('Error while encoding');
+			return this.convertResult;
+		}
+		clock += 1000;
+		hooks.onProgress?.(40);
+		clock += 1000;
+		hooks.onProgress?.(100);
+		await writeFile(conversion.output, 'converted');
+		return { ok: true };
+	}
+}
+
 let dataDir: string;
 let db: Database;
 let ytDlp: FakeYtDlp;
+let ffmpeg: FakeFfmpeg;
+// The codec the fake tag reader finds in every download
+let downloadedCodec: string | null;
 let queue: DownloadQueue;
 let emitted: DownloadEvent[];
 // The queue's clock, moved by the fake yt-dlp to make the throttling testable
 let clock = 0;
 
 const available: ToolStatus = { tool: 'yt-dlp', command: 'yt-dlp', state: 'available' };
+
+const tagReader: TagReader = {
+	read: async () => ({
+		ok: true,
+		tags: { artists: [] },
+		audio: {
+			codec: downloadedCodec,
+			codecProfile: null,
+			lossless: false,
+			bitrate: null,
+			sampleRate: null,
+			bitDepth: null,
+			channels: null,
+		},
+	}),
+};
 
 function analysis(): AnalysisDependencies {
 	return {
@@ -138,7 +203,10 @@ function newQueue(): DownloadQueue {
 	return createDownloadQueue({
 		db,
 		ytDlp,
+		ffmpeg,
+		tagReader,
 		downloadsDirectory: path.join(dataDir, 'downloads'),
+		listFileNames,
 		createDirectory,
 		removeDirectory,
 		now: () => clock,
@@ -164,6 +232,8 @@ beforeEach(async () => {
 	db = openDatabase(dataDir);
 	await applyMigrations(db.$client, await loadMigrations(readMigrationsFolder));
 	ytDlp = new FakeYtDlp();
+	ffmpeg = new FakeFfmpeg();
+	downloadedCodec = 'Opus';
 	emitted = [];
 	clock = 0;
 	queue = newQueue();
@@ -229,7 +299,9 @@ describe('download queue', () => {
 				'[download] 100% of 5.00KiB',
 			]);
 			expect(
-				existsSync(path.join(dataDir, 'downloads', `${job.id}`, `${item.id}.webm`)),
+				existsSync(
+					path.join(dataDir, 'downloads', `${job.id}`, `${item.id}.converted.opus`),
+				),
 			).toBe(true);
 		}
 	});
@@ -241,12 +313,16 @@ describe('download queue', () => {
 		const [item] = (await jobOf(job.id)).items;
 		expect(item).toMatchObject({
 			state: 'completed',
-			step: 'downloading',
+			step: 'converting',
 			progressPercent: 100,
 		});
 		expect(item?.speedBytesPerSecond).toBeUndefined();
 		const running = emitted.flatMap((event) =>
-			event.type === 'item' && event.item.state === 'running' ? [event.item] : [],
+			event.type === 'item' &&
+			event.item.state === 'running' &&
+			event.item.step === 'downloading'
+				? [event.item]
+				: [],
 		);
 		// 0 as the item starts, then 10 and 60: 11 came too soon, and 100 is the last one sent
 		expect(running.map((update) => update.progressPercent)).toEqual([0, 10, 60, 100]);
@@ -257,6 +333,100 @@ describe('download queue', () => {
 			progressPercent: 60,
 			speedBytesPerSecond: 60_000,
 		});
+	});
+
+	it('then reports the conversion as a step of its own', async () => {
+		await queueJob(['a']);
+		await queue.wake();
+
+		const steps = emitted.flatMap((event) =>
+			event.type === 'item' && event.item.state === 'running'
+				? [`${event.item.step} ${event.item.progressPercent}`]
+				: [],
+		);
+		expect(steps.slice(-4)).toEqual([
+			'downloading 100',
+			'converting 0',
+			'converting 40',
+			'converting 100',
+		]);
+	});
+
+	it('converts each item with its tags and a square cover, the source kept as is', async () => {
+		const job = await queueJob(['a']);
+		await queue.wake();
+
+		const [item] = (await jobOf(job.id)).items;
+		const folder = path.join(dataDir, 'downloads', `${job.id}`);
+		expect(ffmpeg.conversions).toEqual([
+			{
+				audio: path.join(folder, `${item?.id}.webm`),
+				tags: item?.tags,
+				cover: path.join(folder, `${item?.id}.square.jpg`),
+				metadataFile: path.join(folder, `${item?.id}.tags.ffmetadata`),
+				output: path.join(folder, `${item?.id}.converted.opus`),
+				target: { extension: '.opus', cover: 'picture-block' },
+			},
+		]);
+	});
+
+	it('takes the format of the settings, unless the job asks for another', async () => {
+		const settings = { ...analysis().settings, outputFormat: 'mp3-192' as const };
+		const byDefault = await createDownload(
+			db,
+			{ url: playlistUrl, itemIds: ['a'] },
+			{ ...analysis(), settings },
+		);
+		const chosen = await createDownload(
+			db,
+			{ url: playlistUrl, itemIds: ['b'], outputFormat: 'mp3-320' },
+			{ ...analysis(), settings },
+		);
+		expect([byDefault.outputFormat, chosen.outputFormat]).toEqual(['mp3-192', 'mp3-320']);
+
+		await queue.wake();
+
+		expect(ffmpeg.conversions.map((conversion) => conversion.target)).toEqual([
+			{ extension: '.mp3', mp3BitrateKbps: 192, cover: 'stream' },
+			{ extension: '.mp3', mp3BitrateKbps: 320, cover: 'stream' },
+		]);
+		expect(ffmpeg.conversions[1]?.output).toMatch(/\.converted\.mp3$/);
+	});
+
+	it('fails an item whose source codec Luz cannot keep as is, without converting it', async () => {
+		downloadedCodec = 'FLAC';
+		const job = await queueJob(['a']);
+		await queue.wake();
+
+		expect((await jobOf(job.id)).items[0]?.error?.reason).toBe('unsupported-source');
+		expect(ffmpeg.conversions).toEqual([]);
+	});
+
+	it.each([
+		['tool-unavailable', 'ffmpeg-unavailable'],
+		['failed', 'conversion'],
+	] as const)('names a conversion that ends with %s as %s', async (reason, failure) => {
+		ffmpeg.convertResult = { ok: false, reason };
+		const job = await queueJob(['a']);
+		await queue.wake();
+
+		const [item] = (await jobOf(job.id)).items;
+		expect(item?.state).toBe('failed');
+		expect(item?.error?.reason).toBe(failure);
+		expect(item?.log.at(-1)).toBe('Error while encoding');
+	});
+
+	it('converts without a cover when the thumbnail cannot be read', async () => {
+		ffmpeg.coverResult = { ok: false, reason: 'failed' };
+		const job = await queueJob(['a']);
+		await queue.wake();
+
+		const [item] = (await jobOf(job.id)).items;
+		expect(item?.state).toBe('completed');
+		expect(ffmpeg.conversions[0]).not.toHaveProperty('cover');
+		expect(item?.log).toContain(
+			'The thumbnail could not be made into a cover: the file has none.',
+		);
 	});
 
 	it('announces the job and its items as they change, without their log', async () => {
@@ -447,6 +617,9 @@ describe('yt-dlp download', () => {
 			'/data/downloads/1',
 			'--output',
 			'7.%(ext)s',
+			'--write-thumbnail',
+			'--output',
+			'thumbnail:7.cover.%(ext)s',
 			'--',
 			'https://example.com/a',
 		]);
@@ -503,7 +676,10 @@ describe('cancelling a real process', () => {
 		queue = createDownloadQueue({
 			db,
 			ytDlp: real,
+			ffmpeg,
+			tagReader,
 			downloadsDirectory: path.join(dataDir, 'downloads'),
+			listFileNames,
 			createDirectory,
 			removeDirectory,
 			events: { emit: () => undefined },

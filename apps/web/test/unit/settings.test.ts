@@ -1,7 +1,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { defaultNamingTemplate, defaultSettings } from '@luz/core';
+import { defaultNamingTemplate, defaultOutputFormat, defaultSettings } from '@luz/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
@@ -39,7 +39,12 @@ describe('settings', () => {
 	it('writes the core defaults on first start', async () => {
 		expect(await getSettings(db)).toEqual(defaultSettings);
 		expect(await db.select().from(settings)).toEqual([
-			{ id: 1, musicLibraryPath: null, namingTemplate: defaultNamingTemplate },
+			{
+				id: 1,
+				musicLibraryPath: null,
+				namingTemplate: defaultNamingTemplate,
+				outputFormat: defaultOutputFormat,
+			},
 		]);
 	});
 
@@ -51,6 +56,7 @@ describe('settings', () => {
 		expect(await getSettings(db)).toEqual({
 			musicLibraryPath: '/music',
 			namingTemplate: defaultNamingTemplate,
+			outputFormat: defaultOutputFormat,
 		});
 	});
 
@@ -61,6 +67,27 @@ describe('settings', () => {
 		await ensureSettings(db);
 
 		expect(await getSettings(db)).toEqual(defaultSettings);
+	});
+
+	// A row written before the output format existed
+	it('fills in the default output format of an older row', async () => {
+		await db.update(settings).set({ outputFormat: null });
+
+		await ensureSettings(db);
+
+		expect(await getSettings(db)).toEqual(defaultSettings);
+	});
+
+	it('updates the output format alone', async () => {
+		await updateSettings(db, { musicLibraryPath: '/music' });
+
+		expect(await updateSettings(db, { outputFormat: 'mp3-256' })).toEqual({
+			musicLibraryPath: '/music',
+			namingTemplate: defaultNamingTemplate,
+			outputFormat: 'mp3-256',
+		});
+		await ensureSettings(db);
+		expect((await getSettings(db)).outputFormat).toBe('mp3-256');
 	});
 
 	it('keeps a stored naming template when the defaults are ensured again', async () => {
@@ -77,6 +104,7 @@ describe('settings', () => {
 		expect(await updateSettings(db, { namingTemplate: '{title}' })).toEqual({
 			musicLibraryPath: '/music',
 			namingTemplate: '{title}',
+			outputFormat: defaultOutputFormat,
 		});
 	});
 
@@ -84,6 +112,7 @@ describe('settings', () => {
 		expect(await updateSettings(db, { musicLibraryPath: '/music' })).toEqual({
 			musicLibraryPath: '/music',
 			namingTemplate: defaultNamingTemplate,
+			outputFormat: defaultOutputFormat,
 		});
 	});
 
@@ -99,6 +128,7 @@ describe('settings', () => {
 		expect(await updateSettings(db, {})).toEqual({
 			musicLibraryPath: '/music',
 			namingTemplate: defaultNamingTemplate,
+			outputFormat: defaultOutputFormat,
 		});
 	});
 
@@ -110,6 +140,7 @@ describe('settings', () => {
 
 		expect(await getSettings(db)).toEqual({
 			namingTemplate: defaultNamingTemplate,
+			outputFormat: defaultOutputFormat,
 			musicLibraryPath: 'D:\\Music',
 		});
 	});

@@ -5,6 +5,8 @@ import {
 	type DownloadItem,
 	type DownloadJob,
 	type DownloadState,
+	type DownloadStep,
+	type OutputFormat,
 	type TrackTags,
 } from '@luz/core';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
@@ -25,6 +27,7 @@ export interface NewDownloadJob {
 	url: string;
 	kind: AnalyzedKind;
 	title: string;
+	outputFormat: OutputFormat;
 	items: NewDownloadItem[];
 }
 
@@ -41,6 +44,7 @@ export async function insertDownloadJob(
 				url: job.url,
 				kind: job.kind,
 				title: job.title,
+				outputFormat: job.outputFormat,
 				state: 'queued',
 				createdAtMs: nowMs,
 				itemCount: job.items.length,
@@ -140,6 +144,18 @@ export async function updateDownloadItemProgress(
 		.where(and(eq(downloadItems.id, itemId), eq(downloadItems.state, 'running')));
 }
 
+/** Moves a running item to its next step, from 0 percent. */
+export async function setDownloadItemStep(
+	db: Database,
+	itemId: number,
+	step: DownloadStep,
+): Promise<void> {
+	await db
+		.update(downloadItems)
+		.set({ step, progressPercent: 0, speedBytesPerSecond: null })
+		.where(and(eq(downloadItems.id, itemId), eq(downloadItems.state, 'running')));
+}
+
 /** Ends an item, keeps its log and counts it in its job. */
 export async function finishDownloadItem(
 	db: Database,
@@ -235,6 +251,7 @@ function toJob(row: JobRow, items: ItemRow[]): DownloadJob {
 		url: row.url,
 		kind: row.kind,
 		title: row.title,
+		outputFormat: row.outputFormat,
 		state: row.state,
 		...(row.errorReason === null ? {} : { error: downloadFailure(row.errorReason) }),
 		createdAt: row.createdAtMs,

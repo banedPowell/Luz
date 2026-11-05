@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { defaultOutputFormat, outputFormatSchema } from './download-format.ts';
 import { defaultNamingTemplate, namingTemplateSchema } from './naming.ts';
 
 // A preference of each browser, kept in the colour-mode cookie rather than in the settings (ADR 0006)
@@ -24,6 +25,8 @@ export const settingsSchema = z.object({
 	musicLibraryPath: musicLibraryPathSchema.optional(),
 	// Where a downloaded file lands in the library (naming.ts)
 	namingTemplate: namingTemplateSchema.default(defaultNamingTemplate),
+	// What a download ends in, unless the job chooses otherwise (download-format.ts)
+	outputFormat: outputFormatSchema.default(defaultOutputFormat),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -38,6 +41,7 @@ export const defaultSettings: Settings = settingsSchema.parse({});
 export const settingsPatchSchema = z.strictObject({
 	musicLibraryPath: musicLibraryPathSchema.nullable().optional(),
 	namingTemplate: namingTemplateSchema.optional(),
+	outputFormat: outputFormatSchema.optional(),
 });
 
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;

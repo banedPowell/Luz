@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import {
 	defaultNamingTemplate,
+	defaultOutputFormat,
 	namingPlaceholders,
 	namingTemplateSchema,
+	outputFormatLabels,
+	outputFormats,
 	renderTrackPath,
 	sampleTrackTags,
 	settingsPatchSchema,
 	themes,
 	type Settings,
 	type SettingsPatch,
+	type OutputFormat,
 	type Theme,
 } from '@luz/core';
 import type { FormError, SelectItem } from '@nuxt/ui';
@@ -19,12 +23,22 @@ const toast = useToast();
 const colorMode = useColorMode();
 
 const loadError = ref(false);
-const state = reactive({ musicLibraryPath: '', namingTemplate: defaultNamingTemplate });
+const state = reactive({
+	musicLibraryPath: '',
+	namingTemplate: defaultNamingTemplate,
+	outputFormat: defaultOutputFormat as OutputFormat,
+});
 
 function fill(values: Settings) {
 	state.musicLibraryPath = values.musicLibraryPath ?? '';
 	state.namingTemplate = values.namingTemplate;
+	state.outputFormat = values.outputFormat;
 }
+
+const outputFormatItems = outputFormats.map((value) => ({
+	value,
+	label: outputFormatLabels[value],
+})) satisfies (SelectItem & { value: OutputFormat })[];
 
 const placeholderList = namingPlaceholders.map((name) => `{${name}}`).join(' ');
 
@@ -73,6 +87,7 @@ function toPatch(values: Partial<typeof state>): SettingsPatch {
 	return {
 		musicLibraryPath: values.musicLibraryPath?.trim() ? values.musicLibraryPath : null,
 		namingTemplate: values.namingTemplate,
+		outputFormat: values.outputFormat,
 	};
 }
 
@@ -164,6 +179,19 @@ async function save() {
 					spellcheck="false"
 					class="w-full"
 					:ui="{ base: 'font-mono' }"
+				/>
+			</UFormField>
+
+			<UFormField
+				name="outputFormat"
+				label="Download format"
+				description="What downloads end in, unless you choose otherwise when you start one. The source audio is kept as the site serves it, Opus or AAC, without re-encoding."
+			>
+				<USelect
+					v-model="state.outputFormat"
+					:items="outputFormatItems"
+					aria-label="Download format"
+					class="w-full sm:w-56"
 				/>
 			</UFormField>
 
