@@ -4,7 +4,7 @@ import type { ListView } from '@luz/core';
 const { view, linkToView } = useListView();
 
 const options: { value: ListView; label: string; icon: string }[] = [
-	{ value: 'table', label: 'Table', icon: 'i-pixelarticons-table' },
+	{ value: 'table', label: 'Table', icon: 'i-pixelarticons-list' },
 	{ value: 'grid', label: 'Grid', icon: 'i-pixelarticons-grid' },
 ];
 
