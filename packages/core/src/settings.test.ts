@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 
+import { defaultNamingTemplate } from './naming.ts';
 import { defaultSettings, settingsPatchSchema, settingsSchema, themeSchema } from './settings.ts';
 
 describe('themeSchema', () => {
@@ -14,13 +15,13 @@ describe('themeSchema', () => {
 
 describe('settingsSchema', () => {
 	it('fills in the defaults for an empty object', () => {
-		expect(settingsSchema.parse({})).toEqual({});
+		expect(settingsSchema.parse({})).toEqual({ namingTemplate: defaultNamingTemplate });
 	});
 
 	it('keeps valid values', () => {
-		expect(settingsSchema.parse({ musicLibraryPath: '/music' })).toEqual({
-			musicLibraryPath: '/music',
-		});
+		expect(
+			settingsSchema.parse({ musicLibraryPath: '/music', namingTemplate: '{album}/{title}' }),
+		).toEqual({ musicLibraryPath: '/music', namingTemplate: '{album}/{title}' });
 	});
 
 	it('trims the library path', () => {
@@ -34,6 +35,8 @@ describe('settingsSchema', () => {
 		{ musicLibraryPath: '   ' },
 		{ musicLibraryPath: 42 },
 		{ musicLibraryPath: 'Music' },
+		{ namingTemplate: '{genre}' },
+		{ namingTemplate: '../{title}' },
 	])('rejects %j', (input) => {
 		expect(settingsSchema.safeParse(input).success).toBe(false);
 	});
@@ -44,8 +47,8 @@ describe('settingsSchema', () => {
 });
 
 describe('defaultSettings', () => {
-	it('has no library path', () => {
-		expect(defaultSettings).toEqual({});
+	it('has no library path and the default naming template', () => {
+		expect(defaultSettings).toEqual({ namingTemplate: defaultNamingTemplate });
 		expect('musicLibraryPath' in defaultSettings).toBe(false);
 	});
 });
@@ -68,6 +71,12 @@ describe('settingsPatchSchema', () => {
 		},
 	);
 
+	it('trims the naming template', () => {
+		expect(settingsPatchSchema.parse({ namingTemplate: ' {title} ' })).toEqual({
+			namingTemplate: '{title}',
+		});
+	});
+
 	it('clears the library path with null', () => {
 		expect(settingsPatchSchema.parse({ musicLibraryPath: null })).toEqual({
 			musicLibraryPath: null,
@@ -84,6 +93,9 @@ describe('settingsPatchSchema', () => {
 		{ musicLibraryPath: './Music' },
 		{ musicLibraryPath: 'D:Music' },
 		{ volume: 3 },
+		{ namingTemplate: null },
+		{ namingTemplate: '' },
+		{ namingTemplate: '/{title}' },
 	])('rejects %j', (input) => {
 		expect(settingsPatchSchema.safeParse(input).success).toBe(false);
 	});

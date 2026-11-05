@@ -12,6 +12,8 @@ export const settings = sqliteTable(
 	{
 		id: integer('id').primaryKey(),
 		musicLibraryPath: text('music_library_path'),
+		// Null only in a row written before the column existed, until ensureSettings() fills it
+		namingTemplate: text('naming_template'),
 	},
 	(table) => [check('settings_single_row', sql`${table.id} = 1`)],
 );

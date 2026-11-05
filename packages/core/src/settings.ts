@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { defaultNamingTemplate, namingTemplateSchema } from './naming.ts';
+
 // A preference of each browser, kept in the colour-mode cookie rather than in the settings (ADR 0006)
 export const themes = ['system', 'light', 'dark'] as const;
 
@@ -20,6 +22,8 @@ const musicLibraryPathSchema = z
 export const settingsSchema = z.object({
 	// Absent until the user picks a folder: there is no sensible default library location
 	musicLibraryPath: musicLibraryPathSchema.optional(),
+	// Where a downloaded file lands in the library (naming.ts)
+	namingTemplate: namingTemplateSchema.default(defaultNamingTemplate),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -33,6 +37,7 @@ export const defaultSettings: Settings = settingsSchema.parse({});
  */
 export const settingsPatchSchema = z.strictObject({
 	musicLibraryPath: musicLibraryPathSchema.nullable().optional(),
+	namingTemplate: namingTemplateSchema.optional(),
 });
 
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;

@@ -43,6 +43,13 @@
 			"when": 1793866538269,
 			"tag": "0005_add_track_added_at",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "6",
+			"when": 1793880489126,
+			"tag": "0006_add_settings_naming_template",
+			"breakpoints": true
 		}
 	]
 }

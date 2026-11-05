@@ -1,4 +1,4 @@
-import type { Settings } from '@luz/core';
+import { defaultSettings, type Settings } from '@luz/core';
 import { createError } from '#app';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { ErrorPage } from '#components';
@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Pages may load the settings; the theme menu no longer does (ADR 0006)
 registerEndpoint('/api/settings', {
 	method: 'GET',
-	handler: (): Settings => ({}),
+	handler: (): Settings => defaultSettings,
 });
 
 function mountError(status: number, details: { statusText?: string; message?: string } = {}) {

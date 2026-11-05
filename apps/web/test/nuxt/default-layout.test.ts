@@ -1,4 +1,4 @@
-import type { Settings } from '@luz/core';
+import { defaultSettings, type Settings } from '@luz/core';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { NuxtLayout, UApp } from '#components';
 import { describe, expect, it } from 'vitest';
@@ -12,7 +12,7 @@ const DefaultLayout = defineComponent({
 // Pages may load the settings; the theme switch does not (ADR 0006)
 registerEndpoint('/api/settings', {
 	method: 'GET',
-	handler: (): Settings => ({}),
+	handler: (): Settings => defaultSettings,
 });
 
 const focusable =

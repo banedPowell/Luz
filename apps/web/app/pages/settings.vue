@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import {
+	defaultNamingTemplate,
+	namingPlaceholders,
+	namingTemplateSchema,
+	renderTrackPath,
+	sampleTrackTags,
 	settingsPatchSchema,
 	themes,
 	type Settings,
@@ -14,11 +19,21 @@ const toast = useToast();
 const colorMode = useColorMode();
 
 const loadError = ref(false);
-const state = reactive({ musicLibraryPath: '' });
+const state = reactive({ musicLibraryPath: '', namingTemplate: defaultNamingTemplate });
 
 function fill(values: Settings) {
 	state.musicLibraryPath = values.musicLibraryPath ?? '';
+	state.namingTemplate = values.namingTemplate;
 }
+
+const placeholderList = namingPlaceholders.map((name) => `{${name}}`).join(' ');
+
+// Rendered from made-up tags as the user types; nothing while the template is invalid,
+// since the form shows the error in its place
+const namingExample = computed(() => {
+	const result = namingTemplateSchema.safeParse(state.namingTemplate);
+	return result.success ? renderTrackPath(result.data, sampleTrackTags, 'flac') : undefined;
+});
 
 async function retryLoad() {
 	try {
@@ -57,6 +72,7 @@ const theme = computed<Theme>({
 function toPatch(values: Partial<typeof state>): SettingsPatch {
 	return {
 		musicLibraryPath: values.musicLibraryPath?.trim() ? values.musicLibraryPath : null,
+		namingTemplate: values.namingTemplate,
 	};
 }
 
@@ -132,6 +148,22 @@ async function save() {
 					autocomplete="off"
 					spellcheck="false"
 					class="w-full"
+				/>
+			</UFormField>
+
+			<UFormField
+				name="namingTemplate"
+				label="File names"
+				:description="`Where downloaded files land in the library. Use / between folders and the placeholders ${placeholderList}; {track:02} pads with zeros.`"
+				:help="namingExample && `Example: ${namingExample}`"
+			>
+				<UInput
+					v-model="state.namingTemplate"
+					:placeholder="defaultNamingTemplate"
+					autocomplete="off"
+					spellcheck="false"
+					class="w-full"
+					:ui="{ base: 'font-mono' }"
 				/>
 			</UFormField>
 

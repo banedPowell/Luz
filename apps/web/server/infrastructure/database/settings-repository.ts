@@ -1,5 +1,5 @@
 import { defaultSettings, type Settings, type SettingsPatch } from '@luz/core';
-import { eq } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 
 import type { Database } from './client';
 import { settings } from './schema';
@@ -7,15 +7,23 @@ import { settings } from './schema';
 // The table holds a single row, enforced by a CHECK constraint
 const settingsRowId = 1;
 
-/** Writes the default settings unless a row exists already, so user choices survive. */
+/**
+ * Writes the default settings unless a row exists already, so user choices survive.
+ * A setting added after the row was written gets its default here too.
+ */
 export async function ensureSettings(db: Database): Promise<void> {
 	await db
 		.insert(settings)
 		.values({
 			id: settingsRowId,
 			musicLibraryPath: defaultSettings.musicLibraryPath ?? null,
+			namingTemplate: defaultSettings.namingTemplate,
 		})
 		.onConflictDoNothing();
+	await db
+		.update(settings)
+		.set({ namingTemplate: defaultSettings.namingTemplate })
+		.where(isNull(settings.namingTemplate));
 }
 
 export async function readSettings(db: Database): Promise<Settings> {
@@ -30,6 +38,9 @@ export async function writeSettings(db: Database, patch: SettingsPatch): Promise
 	const changes: Partial<typeof settings.$inferInsert> = {};
 	if (patch.musicLibraryPath !== undefined) {
 		changes.musicLibraryPath = patch.musicLibraryPath;
+	}
+	if (patch.namingTemplate !== undefined) {
+		changes.namingTemplate = patch.namingTemplate;
 	}
 
 	if (Object.keys(changes).length === 0) {
@@ -46,7 +57,10 @@ export async function writeSettings(db: Database, patch: SettingsPatch): Promise
 	return toSettings(row);
 }
 
-// A null column becomes an absent key, as in the core schema
+// A null column becomes an absent key or the default, as in the core schema
 function toSettings(row: typeof settings.$inferSelect): Settings {
-	return row.musicLibraryPath === null ? {} : { musicLibraryPath: row.musicLibraryPath };
+	const namingTemplate = row.namingTemplate ?? defaultSettings.namingTemplate;
+	return row.musicLibraryPath === null
+		? { namingTemplate }
+		: { musicLibraryPath: row.musicLibraryPath, namingTemplate };
 }

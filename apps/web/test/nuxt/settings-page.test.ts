@@ -1,4 +1,10 @@
-import type { Settings, SettingsPatch, ToolStatus } from '@luz/core';
+import {
+	defaultNamingTemplate,
+	settingsPatchSchema,
+	type Settings,
+	type SettingsPatch,
+	type ToolStatus,
+} from '@luz/core';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { NuxtPage, UApp } from '#components';
 import { readBody } from 'h3';
@@ -27,10 +33,14 @@ registerEndpoint('/api/settings', {
 registerEndpoint('/api/settings', {
 	method: 'PATCH',
 	handler: async (event) => {
-		const patch = await readBody<SettingsPatch>(event);
-		patches.push(patch);
-		const { musicLibraryPath, ...rest } = { ...stored, ...patch };
-		stored = musicLibraryPath ? { ...rest, musicLibraryPath } : rest;
+		const body = await readBody<SettingsPatch>(event);
+		patches.push(body);
+		// Parsed like the API does, so the page gets the trimmed values back
+		const patch = settingsPatchSchema.parse(body);
+		const namingTemplate = patch.namingTemplate ?? stored.namingTemplate;
+		const musicLibraryPath =
+			patch.musicLibraryPath === undefined ? stored.musicLibraryPath : patch.musicLibraryPath;
+		stored = musicLibraryPath ? { musicLibraryPath, namingTemplate } : { namingTemplate };
 		return stored;
 	},
 });
@@ -52,13 +62,17 @@ const allAvailable: ToolStatus[] = [
 	{ tool: 'ffprobe', command: 'ffprobe', state: 'available' },
 ];
 
+function namingInput(wrapper: Awaited<ReturnType<typeof mountPage>>) {
+	return wrapper.find<HTMLInputElement>('input[name="namingTemplate"]');
+}
+
 async function mountPage() {
 	return mountSuspended(SettingsPage, { route: '/settings' });
 }
 
 describe('settings page', () => {
 	beforeEach(() => {
-		stored = { musicLibraryPath: '/music' };
+		stored = { musicLibraryPath: '/music', namingTemplate: '{artist}/{title}' };
 		useColorMode().preference = 'dark';
 		getFails = false;
 		patches.length = 0;
@@ -83,7 +97,9 @@ describe('settings page', () => {
 		await wrapper.find('form').trigger('submit');
 
 		await vi.waitFor(() => {
-			expect(patches).toEqual([{ musicLibraryPath: '/music' }]);
+			expect(patches).toEqual([
+				{ musicLibraryPath: '/music', namingTemplate: '{artist}/{title}' },
+			]);
 		});
 	});
 
@@ -91,7 +107,7 @@ describe('settings page', () => {
 		const wrapper = await mountPage();
 
 		const labels = wrapper.findAll('label').map((label) => label.text());
-		expect(labels).toEqual(expect.arrayContaining(['Theme', 'Music library']));
+		expect(labels).toEqual(expect.arrayContaining(['Theme', 'Music library', 'File names']));
 		const input = wrapper.find('input');
 		expect(wrapper.find(`label[for="${input.attributes('id')}"]`).exists()).toBe(true);
 	});
@@ -115,12 +131,58 @@ describe('settings page', () => {
 		await wrapper.find('form').trigger('submit');
 
 		await vi.waitFor(() => {
-			expect(patches).toEqual([{ musicLibraryPath: null }]);
+			expect(patches).toEqual([
+				{ musicLibraryPath: null, namingTemplate: '{artist}/{title}' },
+			]);
 		});
 		await vi.waitFor(() => {
 			expect(document.body.textContent).toContain('Settings saved');
 		});
 		expect(wrapper.find('input').element.value).toBe('');
+	});
+
+	it('shows the saved file name template with an example', async () => {
+		const wrapper = await mountPage();
+
+		expect(namingInput(wrapper).element.value).toBe('{artist}/{title}');
+		expect(wrapper.text()).toContain('Example: Daft Punk/Digital Love.flac');
+	});
+
+	it('updates the example as the template is typed', async () => {
+		const wrapper = await mountPage();
+
+		await namingInput(wrapper).setValue(defaultNamingTemplate);
+
+		expect(wrapper.text()).toContain('Example: Daft Punk/Discovery/1-03 Digital Love.flac');
+	});
+
+	it('shows the template error under the field instead of the example, and does not save', async () => {
+		const wrapper = await mountPage();
+
+		await namingInput(wrapper).setValue('{genre}/{title}');
+		await wrapper.find('form').trigger('submit');
+
+		await vi.waitFor(() => {
+			expect(wrapper.text()).toContain('Unknown placeholder {genre}');
+		});
+		expect(wrapper.text()).not.toContain('Example:');
+		expect(patches).toEqual([]);
+	});
+
+	it('saves a new file name template', async () => {
+		const wrapper = await mountPage();
+
+		await namingInput(wrapper).setValue(' {album}/{track:02} {title} ');
+		await wrapper.find('form').trigger('submit');
+
+		await vi.waitFor(() => {
+			expect(patches).toEqual([
+				{ musicLibraryPath: '/music', namingTemplate: ' {album}/{track:02} {title} ' },
+			]);
+		});
+		await vi.waitFor(() => {
+			expect(namingInput(wrapper).element.value).toBe('{album}/{track:02} {title}');
+		});
 	});
 
 	it('warns when the settings cannot be loaded', async () => {
