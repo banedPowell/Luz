@@ -4,12 +4,12 @@ import { NuxtLayout, UApp } from '#components';
 import { describe, expect, it } from 'vitest';
 import { defineComponent, h } from 'vue';
 
-// The sidebar has tooltips and a theme menu, which need the providers of UApp
+// The sidebar has tooltips, which need the providers of UApp
 const DefaultLayout = defineComponent({
 	render: () => h(UApp, null, () => h(NuxtLayout, null, () => h('p', 'Page content'))),
 });
 
-// Pages may load the settings; the theme menu no longer does (ADR 0006)
+// Pages may load the settings; the theme switch does not (ADR 0006)
 registerEndpoint('/api/settings', {
 	method: 'GET',
 	handler: (): Settings => ({}),

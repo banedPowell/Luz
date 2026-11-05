@@ -65,29 +65,42 @@ describe('app shell in a browser', async () => {
 
 	it('keeps the theme in this browser across a reload', async () => {
 		const page = await createPage('/');
-		await page.getByRole('button', { name: /^Theme: / }).click();
-		await page.getByRole('menuitemcheckbox', { name: 'Dark' }).click();
+		await page.getByRole('button', { name: 'Dark theme' }).click();
 		await page.waitForSelector('html.dark', { state: 'attached' });
 
 		// Read back from the cookie: nothing else stores it
 		await page.reload();
 		await page.waitForSelector('html.dark', { state: 'attached' });
-		await page.getByRole('button', { name: 'Theme: Dark' }).waitFor();
+		await page.getByRole('button', { name: 'Dark theme', pressed: true }).waitFor();
 
 		await page.close();
 	});
 
 	it('switches between light and dark and the dark class on <html> follows', async () => {
 		const page = await createPage('/');
+		const group = page.getByRole('group', { name: 'Theme' });
+		// Order and names of the pill: light, dark, system
+		expect(await group.getByRole('button').count()).toBe(3);
+		expect(await group.getByRole('button').nth(0).getAttribute('aria-label')).toBe(
+			'Light theme',
+		);
+		expect(await group.getByRole('button').nth(2).getAttribute('aria-label')).toBe(
+			'System theme',
+		);
+
 		// Selectors rather than page.evaluate: this test is type checked without the DOM library
-		await page.getByRole('button', { name: /^Theme: / }).click();
-		await page.getByRole('menuitemcheckbox', { name: 'Dark' }).click();
+		await group.getByRole('button', { name: 'Dark theme' }).click();
 		await page.waitForSelector('html.dark', { state: 'attached' });
 
-		await page.getByRole('button', { name: 'Theme: Dark' }).click();
-		await page.getByRole('menuitemcheckbox', { name: 'Light' }).click();
+		// Keyboard: the buttons are tab stops and Enter applies the theme
+		await group.getByRole('button', { name: 'Light theme' }).focus();
+		await page.keyboard.press('Enter');
 		await page.waitForSelector('html:not(.dark)', { state: 'attached' });
-		expect(await page.locator('html').getAttribute('class')).not.toMatch(/\bdark\b/);
+		expect(await page.locator('html').getAttribute('class')).not.toMatch(/dark/);
+		await group.getByRole('button', { name: 'Light theme', pressed: true }).waitFor();
+		expect(
+			await group.getByRole('button', { name: 'Dark theme' }).getAttribute('aria-pressed'),
+		).toBe('false');
 
 		await page.close();
 	});

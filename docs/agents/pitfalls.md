@@ -59,7 +59,7 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 
 - **`UError` is built for a standalone page** (`main` root, `h1`, full-screen height). Inside the layout, pass `:as="{ root: 'div', statusMessage: 'h2' }"` and `class="h-full min-h-0"`.
 - **`not-sr-only` resets `position`, `padding` and `margin`**: combined with `focus:fixed` or `focus:p-*` under the same variant, the result depends on Tailwind's generation order. Check the computed style.
-- **Before hydration, clicks and typing are lost** in a browser check (the sidebar footer "Theme: …" only appears once hydrated). Nuxt UI menus close between coordinate-based actions: target elements by reference or keyboard.
+- **Before hydration, clicks and typing are lost** in a browser check (the theme buttons of the sidebar footer only appear once hydrated). Nuxt UI menus close between coordinate-based actions: target elements by reference or keyboard.
 - **`UTable` only sorts a column that has an accessor**: with an `id` alone, `enableSorting` does nothing and the header gets no `aria-sort`. Server-sorted lists give it `accessorFn: () => null` and `manualSorting` (`useSortableHeaders`).
 - **`resolveComponent()` outside a template** (in a column `header` render function) finds no Nuxt component, which are not registered globally: it renders an empty unknown element. Import from `#components` instead.
 - **The theme is not a setting** ([ADR 0006](../decisions/0006-theme-in-a-cookie.md)): it lives in the `luz-color-mode` cookie, changed with no request. In the built-in browser, that cookie forces the theme; change it to check the other one, then restore it.

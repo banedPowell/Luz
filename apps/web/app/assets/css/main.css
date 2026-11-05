@@ -4,7 +4,7 @@
 
 /* @nuxt/fonts resolves and self-hosts these families at build time */
 @theme {
-	--font-sans: 'Geist', sans-serif;
+	--font-sans: 'DM Sans', sans-serif;
 	--font-mono: 'Geist Mono', monospace;
 }
 
