@@ -38,6 +38,7 @@ describe('loadMigrations', () => {
 			'0005_add_track_added_at',
 			'0006_add_settings_naming_template',
 			'0007_create_downloads',
+			'0008_add_download_item_progress',
 		]);
 		expect(migrations[0]?.statements[0]).toMatch(/^CREATE TABLE `settings`/);
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
@@ -72,6 +73,8 @@ describe('loadMigrations', () => {
 				'1793880489126:9aaaad6a2042c70588db4ac854ab369cb55b2f50044f936b58192996624b04fe',
 			'0007_create_downloads':
 				'1793886357338:736ab78349d1cc175ce88e0edb3feb1b9f0013eebf0827bffc15d0777f4464d8',
+			'0008_add_download_item_progress':
+				'1793889762227:ac07d5567d04da100889bf9b4cbb3642441a3dfc4a7b809ce15d7af075686260',
 		});
 	});
 
@@ -154,6 +157,7 @@ describe('database', () => {
 			'0005_add_track_added_at',
 			'0006_add_settings_naming_template',
 			'0007_create_downloads',
+			'0008_add_download_item_progress',
 		]);
 		expect(await migrate()).toEqual([]);
 	});
@@ -235,6 +239,7 @@ describe('database', () => {
 			'0005_add_track_added_at',
 			'0006_add_settings_naming_template',
 			'0007_create_downloads',
+			'0008_add_download_item_progress',
 		]);
 		expect(await db.select().from(settings)).toEqual([
 			{ id: 1, musicLibraryPath: '/music', namingTemplate: null },

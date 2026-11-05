@@ -1,7 +1,10 @@
 import {
 	classifyYtDlpError,
+	parseProgressLine,
+	progressTemplate,
 	ytDlpInfoSchema,
 	type AnalysisErrorReason,
+	type DownloadProgress,
 	type YtDlpInfo,
 } from '@luz/core';
 
@@ -28,8 +31,10 @@ export interface DownloadOptions {
 	/** The file name without extension; yt-dlp adds the extension of the format it picks. */
 	fileStem: string;
 	signal?: AbortSignal;
-	/** Every line yt-dlp prints, stdout and stderr, for the item log. */
+	/** Every line yt-dlp prints, stdout and stderr, for the item log, except the progress lines. */
 	onLine?: (line: string) => void;
+	/** Each progress update, as often as yt-dlp prints one: the caller decides what to keep. */
+	onProgress?: (progress: DownloadProgress) => void;
 }
 
 export interface YtDlp {
@@ -74,12 +79,14 @@ export function createYtDlp(
 			return parseInfo(stdout.join('\n'), stderr);
 		},
 
-		async download(url, { directory, fileStem, signal, onLine }) {
+		async download(url, { directory, fileStem, signal, onLine, onProgress }) {
 			const stderr: string[] = [];
 			const result = await runner.run(command, {
 				args: [
 					'--no-playlist',
 					'--newline',
+					'--progress-template',
+					progressTemplate,
 					'--format',
 					'bestaudio/best',
 					// --paths is no template, so a "%" in the data directory stays a "%"
@@ -91,7 +98,14 @@ export function createYtDlp(
 					url,
 				],
 				signal,
-				onStdoutLine: (line) => onLine?.(line),
+				onStdoutLine: (line) => {
+					const progress = parseProgressLine(line);
+					if (progress) {
+						onProgress?.(progress);
+					} else {
+						onLine?.(line);
+					}
+				},
 				onStderrLine: (line) => {
 					onLine?.(line);
 					stderr.push(line);

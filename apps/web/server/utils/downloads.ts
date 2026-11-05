@@ -6,6 +6,7 @@ import { createDirectory, listFileNames, removeDirectory } from '../infrastructu
 import { createProcessRunner } from '../infrastructure/process-runner';
 import { createYtDlp } from '../infrastructure/yt-dlp';
 import type { AnalysisDependencies } from '../services/download-analysis';
+import { createDownloadEvents } from '../services/download-events';
 import { createDownloadQueue, type DownloadQueue } from '../services/downloads';
 import { getSettings } from '../services/settings';
 import { useLuzConfig } from './config';
@@ -14,6 +15,12 @@ import { logger } from './logger';
 import { useToolStatus } from './tools';
 
 let queue: Promise<DownloadQueue> | undefined;
+const events = createDownloadEvents();
+
+/** The updates of the queue, for the stream of events. */
+export function useDownloadEvents() {
+	return events;
+}
 
 /** The download queue of the server, created once the database is ready. */
 export function useDownloadQueue(): Promise<DownloadQueue> {
@@ -25,6 +32,7 @@ export function useDownloadQueue(): Promise<DownloadQueue> {
 			downloadsDirectory: path.join(dataDir, 'downloads'),
 			createDirectory,
 			removeDirectory,
+			events,
 			logger,
 		});
 	});

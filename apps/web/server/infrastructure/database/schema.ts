@@ -1,5 +1,11 @@
 import { sql } from 'drizzle-orm';
-import type { AnalyzedKind, DownloadFailureReason, DownloadState, TrackTags } from '@luz/core';
+import type {
+	AnalyzedKind,
+	DownloadFailureReason,
+	DownloadState,
+	DownloadStep,
+	TrackTags,
+} from '@luz/core';
 import { check, index, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 /**
@@ -137,6 +143,10 @@ export const downloadItems = sqliteTable(
 		pathWithoutExtension: text('path_without_extension').notNull(),
 		state: text('state').$type<DownloadState>().notNull(),
 		errorReason: text('error_reason').$type<DownloadFailureReason>(),
+		// Where a running item stands; the speed is bytes per second
+		step: text('step').$type<DownloadStep>(),
+		progressPercent: integer('progress_percent'),
+		speedBytesPerSecond: integer('speed_bytes_per_second'),
 		// The capped tool output (appendToLog of @luz/core), as a JSON array of lines
 		log: text('log', { mode: 'json' }).$type<string[]>().notNull(),
 	},

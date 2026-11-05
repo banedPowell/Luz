@@ -13,6 +13,7 @@ export default defineEventHandler(async (event) => {
 			request,
 			await useAnalysisDependencies(),
 		);
+		useDownloadEvents().emit({ type: 'job-added', job });
 		void (await useDownloadQueue()).wake();
 		setResponseStatus(event, 201);
 		return job;

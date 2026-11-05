@@ -5,6 +5,7 @@ import {
 	type AnalysisErrorReason,
 	type AnalyzedKind,
 } from './download-analysis.ts';
+import type { DownloadStep } from './download-progress.ts';
 import type { TrackTags } from './library.ts';
 
 /**
@@ -90,6 +91,11 @@ export interface DownloadItem {
 	pathWithoutExtension: string;
 	state: DownloadState;
 	error?: DownloadFailure;
+	/** The step of a running item; kept on the last one it reached. */
+	step?: DownloadStep;
+	/** Whole percent of the step, while one reports it. */
+	progressPercent?: number;
+	speedBytesPerSecond?: number;
 	/** The technical output of the tools, oldest lines dropped past the cap. */
 	log: string[];
 }

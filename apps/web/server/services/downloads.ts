@@ -5,6 +5,10 @@ import {
 	downloadFailureFromAnalysis,
 	finishedJobState,
 	isFinishedState,
+	shouldPublishProgress,
+	toItemUpdate,
+	toJobUpdate,
+	type DownloadEvent,
 	type CreateDownloadRequest,
 	type DownloadItem,
 	type DownloadJob,
@@ -21,6 +25,7 @@ import {
 	runningDownloadJobIds,
 	startDownloadItem,
 	startDownloadJob,
+	updateDownloadItemProgress,
 } from '../infrastructure/database/download-repository';
 import type { YtDlp } from '../infrastructure/yt-dlp';
 import { analyzeUrl, type AnalysisDependencies } from './download-analysis';
@@ -83,6 +88,8 @@ export interface DownloadQueueDependencies {
 	downloadsDirectory: string;
 	createDirectory: (directory: string) => Promise<void>;
 	removeDirectory: (directory: string) => Promise<void>;
+	/** Where job and item updates go, for the stream of events. */
+	events: { emit: (event: DownloadEvent) => void };
 	logger: { info: (message: string) => void; error: (message: string, error?: unknown) => void };
 	now?: () => number;
 }
@@ -102,7 +109,7 @@ export interface DownloadQueue {
 
 /** One job at a time, items one by one, in creation order (ADR 0007). */
 export function createDownloadQueue(dependencies: DownloadQueueDependencies): DownloadQueue {
-	const { db, ytDlp, downloadsDirectory, createDirectory, removeDirectory, logger } =
+	const { db, ytDlp, downloadsDirectory, createDirectory, removeDirectory, events, logger } =
 		dependencies;
 	const now = dependencies.now ?? Date.now;
 	const jobDirectory = (jobId: number) => path.join(downloadsDirectory, String(jobId));
@@ -111,6 +118,20 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 	let draining: Promise<void> | undefined;
 	let wanted = false;
 	let stopped = false;
+
+	/** Sends the job as it stands, and its items (all of them, or only `itemIds`). */
+	async function publish(jobId: number, itemIds?: readonly number[]) {
+		const job = await findDownloadJob(db, jobId);
+		if (!job) {
+			return;
+		}
+		events.emit({ type: 'job', job: toJobUpdate(job) });
+		for (const item of job.items) {
+			if (itemIds === undefined || itemIds.includes(item.id)) {
+				events.emit({ type: 'item', jobId, item: toItemUpdate(item) });
+			}
+		}
+	}
 
 	async function recover() {
 		for (const id of await runningDownloadJobIds(db)) {
@@ -156,6 +177,7 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 		if (!(await startDownloadJob(db, job.id, now()))) {
 			return;
 		}
+		await publish(job.id, []);
 		logger.info(`Download job ${job.id} started: ${job.title} (${job.itemCount} items)`);
 		const directory = jobDirectory(job.id);
 		await createDirectory(directory);
@@ -174,12 +196,14 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 			await endUnfinishedItems(db, job.id, 'cancelled');
 			await finishDownloadJob(db, job.id, 'cancelled', now());
 			await removeDirectory(directory);
+			await publish(job.id);
 			logger.info(`Download job ${job.id} cancelled`);
 			return;
 		}
 		const items = (await findDownloadJob(db, job.id))?.items ?? [];
 		const state = finishedJobState(items.map((item) => item.state));
 		await finishDownloadJob(db, job.id, state, now());
+		await publish(job.id, []);
 		logger.info(`Download job ${job.id} ${state}`);
 	}
 
@@ -190,6 +214,7 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 		signal: AbortSignal,
 	) {
 		await startDownloadItem(db, item.id);
+		await publish(job.id, [item.id]);
 		// A playlist item without its own address cannot be downloaded alone
 		const url = item.url ?? (job.kind === 'track' ? job.url : undefined);
 		if (url === undefined) {
@@ -202,9 +227,13 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 					log: ['yt-dlp gave no address for this item.'],
 				},
 			);
+			await publish(job.id, [item.id]);
 			return;
 		}
 		let log: string[] = [];
+		// Progress is written in order, one write at a time, and always before the item ends
+		let writes = Promise.resolve();
+		let lastProgress: { percent: number; atMs: number } | undefined;
 		const result = await ytDlp.download(url, {
 			directory,
 			fileStem: String(item.id),
@@ -212,7 +241,41 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 			onLine: (line) => {
 				log = appendToLog(log, [line]);
 			},
+			onProgress: (progress) => {
+				const atMs = now();
+				if (
+					signal.aborted ||
+					!shouldPublishProgress(lastProgress, progress.percent, atMs)
+				) {
+					return;
+				}
+				lastProgress = { percent: progress.percent, atMs };
+				writes = writes
+					.then(() => updateDownloadItemProgress(db, item.id, progress))
+					.then(() => {
+						events.emit({
+							type: 'item',
+							jobId: job.id,
+							item: {
+								id: item.id,
+								state: 'running',
+								step: 'downloading',
+								progressPercent: progress.percent,
+								...(progress.speedBytesPerSecond === undefined
+									? {}
+									: { speedBytesPerSecond: progress.speedBytesPerSecond }),
+							},
+						});
+					})
+					.catch((error: unknown) => {
+						logger.error(
+							`Could not record the progress of download item ${item.id}`,
+							error,
+						);
+					});
+			},
 		});
+		await writes;
 		if (!result.ok && result.reason === 'aborted') {
 			// Ended with the job, as cancelled, or left running for the restart to find
 			return;
@@ -224,6 +287,7 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 				? { state: 'completed', log }
 				: { state: 'failed', errorReason: downloadFailureFromAnalysis(result.reason), log },
 		);
+		await publish(job.id, [item.id]);
 	}
 
 	async function cancel(jobId: number): Promise<CancelOutcome> {
@@ -244,6 +308,7 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 			return 'finished';
 		}
 		await endUnfinishedItems(db, jobId, 'cancelled');
+		await publish(jobId);
 		return 'cancelled';
 	}
 
