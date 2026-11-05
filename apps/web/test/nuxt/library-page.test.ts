@@ -88,8 +88,11 @@ describe('library page', () => {
 				'2 tracks added, 1 updated, 3 removed, 4 unchanged, 1 file skipped.',
 			);
 		});
-		// The toast leaves the page as it was
-		expect(wrapper.text()).not.toContain('Scan complete');
+		// The toast leaves the page as it was. Not wrapper.text(): for about a second Reka
+		// renders the toast's screen reader announcement in place, inside UApp
+		expect(wrapper.findComponent({ name: 'LibraryScan' }).text()).not.toContain(
+			'Scan complete',
+		);
 	});
 
 	it('lists the tracks a scan indexed, from an empty library', async () => {

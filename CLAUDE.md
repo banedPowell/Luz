@@ -38,7 +38,7 @@ Target layout (create packages and folders only when needed):
 apps/web/                 Nuxt app: UI (app/) and API (server/)
   app/                    pages, layouts, components, composables, stores, utils
   app/app.config.ts       Nuxt UI theme: neutral colour, pixelarticons icons, subtle inputs
-  test/nuxt/              component tests in the Nuxt environment (@nuxt/test-utils)
+  test/nuxt/              component tests in the Nuxt environment (@nuxt/test-utils); setup.ts unmounts after each test
   app/plugins/            Nuxt plugins (e.g. loading the settings during server rendering)
   test/unit/              plain Node tests for server code (root `web-unit` test project)
   test/fixtures/audio/    tagged audio fixtures of a few KB, one per supported format (README has the FFmpeg commands)
