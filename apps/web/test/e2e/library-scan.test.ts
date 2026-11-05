@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { AlbumSummary, LibraryPage, ScanSummary, TrackSummary } from '@luz/core';
 import { $fetch, setup } from '@nuxt/test-utils/e2e';
 import { afterAll, describe, expect, it } from 'vitest';
-import { sharedBuild } from './build';
+import { missingTools, sharedBuild } from './build';
 
 const fixtures = fileURLToPath(new URL('../fixtures/audio', import.meta.url));
 
@@ -31,7 +31,7 @@ async function trackFileNames(): Promise<string[]> {
 describe('library scan', async () => {
 	await setup({
 		...sharedBuild,
-		env: { NUXT_DATA_DIR: dataDir },
+		env: { NUXT_DATA_DIR: dataDir, ...missingTools },
 	});
 
 	it('indexes the fixtures, then follows the changes of the folder', async () => {

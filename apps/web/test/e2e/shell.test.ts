@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createPage, setup } from '@nuxt/test-utils/e2e';
 import { afterAll, describe, expect, it } from 'vitest';
-import { sharedBuild } from './build';
+import { missingTools, sharedBuild } from './build';
 
 // The built server opens a database: keep it away from the user's
 const dataDir = mkdtempSync(path.join(tmpdir(), 'luz-e2e-'));
@@ -17,7 +17,7 @@ const links = ['Home', 'Library', 'Downloads', 'Settings'];
 describe('app shell in a browser', async () => {
 	await setup({
 		...sharedBuild,
-		env: { NUXT_DATA_DIR: dataDir },
+		env: { NUXT_DATA_DIR: dataDir, ...missingTools },
 		browser: true,
 	});
 

@@ -1,14 +1,14 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { Settings } from '@luz/core';
+import type { Settings, ToolStatus } from '@luz/core';
 import { $fetch, fetch, setup, startServer, stopServer } from '@nuxt/test-utils/e2e';
-import { afterAll, describe, expect, it } from 'vitest';
-import { sharedBuild } from './build';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+import { missingTools, sharedBuild } from './build';
 
 // A fresh data directory: the built server creates its database there, never in the user's
 const dataDir = mkdtempSync(path.join(tmpdir(), 'luz-e2e-'));
-const env = { NUXT_DATA_DIR: dataDir };
+const env = { NUXT_DATA_DIR: dataDir, ...missingTools };
 
 // At file level, so it runs once setup() has stopped the server and released the database
 afterAll(() => {
@@ -58,6 +58,25 @@ describe('settings API', async () => {
 		// The color-mode head script applies the cookie's theme before the first paint
 		expect(html).toContain('luz-color-mode');
 		expect(html).toContain('/music');
+	});
+
+	// The commands of missingTools cannot exist: the server must start anyway and say why
+	it('checks the tools at startup and reports the missing ones', async () => {
+		const tools = await vi.waitFor(
+			async () => {
+				const status = await $fetch<ToolStatus[]>('/api/tools');
+				expect(status.every((tool) => tool.state !== 'pending')).toBe(true);
+				return status;
+			},
+			{ timeout: 10_000, interval: 100 },
+		);
+
+		expect(tools.map(({ tool, command, state }) => ({ tool, command, state }))).toEqual([
+			{ tool: 'yt-dlp', command: missingTools.NUXT_YT_DLP_PATH, state: 'unavailable' },
+			{ tool: 'ffmpeg', command: missingTools.NUXT_FFMPEG_PATH, state: 'unavailable' },
+			{ tool: 'ffprobe', command: missingTools.NUXT_FFPROBE_PATH, state: 'unavailable' },
+		]);
+		expect(tools[0]).toMatchObject({ error: expect.stringContaining('NUXT_YT_DLP_PATH') });
 	});
 
 	it('keeps the settings after a server restart on the same database', async () => {

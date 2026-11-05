@@ -1,4 +1,4 @@
-import type { Settings, SettingsPatch } from '@luz/core';
+import type { Settings, SettingsPatch, ToolStatus } from '@luz/core';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { NuxtPage, UApp } from '#components';
 import { readBody } from 'h3';
@@ -35,6 +35,23 @@ registerEndpoint('/api/settings', {
 	},
 });
 
+let tools: ToolStatus[];
+let toolRequests: number;
+
+registerEndpoint('/api/tools', {
+	method: 'GET',
+	handler: () => {
+		toolRequests += 1;
+		return tools;
+	},
+});
+
+const allAvailable: ToolStatus[] = [
+	{ tool: 'yt-dlp', command: 'yt-dlp', state: 'available', version: '2025.10.22' },
+	{ tool: 'ffmpeg', command: 'ffmpeg', state: 'available', version: '7.1.1' },
+	{ tool: 'ffprobe', command: 'ffprobe', state: 'available' },
+];
+
 async function mountPage() {
 	return mountSuspended(SettingsPage, { route: '/settings' });
 }
@@ -45,7 +62,10 @@ describe('settings page', () => {
 		useColorMode().preference = 'dark';
 		getFails = false;
 		patches.length = 0;
+		tools = allAvailable;
+		toolRequests = 0;
 		clearNuxtState('settings');
+		clearNuxtData();
 	});
 
 	it('shows the saved settings and the theme of this browser', async () => {
@@ -110,5 +130,55 @@ describe('settings page', () => {
 
 		expect(wrapper.text()).toContain('Could not load the settings');
 		expect(wrapper.find('button[type="submit"]').attributes('disabled')).toBeDefined();
+	});
+
+	it('shows each tool with its version and its command', async () => {
+		const wrapper = await mountPage();
+
+		const items = wrapper.findAll('section[aria-labelledby="tools-title"] li');
+		expect(items.map((item) => item.text())).toEqual([
+			expect.stringMatching(/yt-dlp.*Available.*Version 2025\.10\.22.*yt-dlp/),
+			expect.stringMatching(/FFmpeg.*Available.*Version 7\.1\.1.*ffmpeg/),
+			expect.stringMatching(/ffprobe.*Available.*ffprobe/),
+		]);
+	});
+
+	it('explains why a tool is unavailable', async () => {
+		tools = [
+			allAvailable[0]!,
+			{
+				tool: 'ffmpeg',
+				command: String.raw`C:\Tools\ffmpeg.exe`,
+				state: 'unavailable',
+				error: 'Not found. Install it, or set NUXT_FFMPEG_PATH to its full path.',
+			},
+			allAvailable[2]!,
+		];
+
+		const wrapper = await mountPage();
+
+		const ffmpeg = wrapper.findAll('section[aria-labelledby="tools-title"] li')[1];
+		expect(ffmpeg?.text()).toContain('Unavailable');
+		expect(ffmpeg?.text()).toContain('set NUXT_FFMPEG_PATH');
+		expect(ffmpeg?.text()).toContain(String.raw`C:\Tools\ffmpeg.exe`);
+	});
+
+	it('checks again while the startup check is pending', async () => {
+		tools = allAvailable.map(({ tool, command }) => ({ tool, command, state: 'pending' }));
+
+		const wrapper = await mountPage();
+		expect(wrapper.text()).toContain('Checking');
+
+		tools = allAvailable;
+		await vi.waitFor(
+			() => {
+				expect(wrapper.text()).not.toContain('Checking');
+			},
+			{ timeout: 3000 },
+		);
+		expect(wrapper.text()).toContain('Version 2025.10.22');
+		const requests = toolRequests;
+		await new Promise((resolve) => setTimeout(resolve, 1200));
+		expect(toolRequests).toBe(requests);
 	});
 });

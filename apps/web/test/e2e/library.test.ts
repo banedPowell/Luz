@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { AlbumSummary, LibraryPage, LibrarySearchResult, TrackSummary } from '@luz/core';
 import { $fetch, createPage, fetch, setup } from '@nuxt/test-utils/e2e';
 import { afterAll, describe, expect, it } from 'vitest';
-import { sharedBuild } from './build';
+import { missingTools, sharedBuild } from './build';
 
 const fixtures = fileURLToPath(new URL('../fixtures/audio', import.meta.url));
 
@@ -26,7 +26,7 @@ afterAll(() => {
 describe('library browsing', async () => {
 	await setup({
 		...sharedBuild,
-		env: { NUXT_DATA_DIR: dataDir },
+		env: { NUXT_DATA_DIR: dataDir, ...missingTools },
 		browser: true,
 	});
 
