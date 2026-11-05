@@ -2,8 +2,10 @@ import path from 'node:path';
 
 import type { ToolStatus } from '@luz/core';
 
+import { createFfmpeg } from '../infrastructure/ffmpeg';
 import { createDirectory, listFileNames, removeDirectory } from '../infrastructure/file-system';
 import { createProcessRunner } from '../infrastructure/process-runner';
+import { createTagReader } from '../infrastructure/tag-reader';
 import { createYtDlp } from '../infrastructure/yt-dlp';
 import type { AnalysisDependencies } from '../services/download-analysis';
 import { createDownloadEvents } from '../services/download-events';
@@ -25,11 +27,15 @@ export function useDownloadEvents() {
 /** The download queue of the server, created once the database is ready. */
 export function useDownloadQueue(): Promise<DownloadQueue> {
 	queue ??= useDatabase().then((db) => {
-		const { dataDir, ytDlpPath } = useLuzConfig();
+		const { dataDir, ytDlpPath, ffmpegPath } = useLuzConfig();
+		const runner = createProcessRunner();
 		return createDownloadQueue({
 			db,
-			ytDlp: createYtDlp(createProcessRunner(), ytDlpPath),
+			ytDlp: createYtDlp(runner, ytDlpPath),
+			ffmpeg: createFfmpeg(runner, ffmpegPath),
+			tagReader: createTagReader(),
 			downloadsDirectory: path.join(dataDir, 'downloads'),
+			listFileNames,
 			createDirectory,
 			removeDirectory,
 			events,

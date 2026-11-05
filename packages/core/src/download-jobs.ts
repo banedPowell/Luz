@@ -5,6 +5,7 @@ import {
 	type AnalysisErrorReason,
 	type AnalyzedKind,
 } from './download-analysis.ts';
+import { outputFormatSchema, type OutputFormat } from './download-format.ts';
 import type { DownloadStep } from './download-progress.ts';
 import type { TrackTags } from './library.ts';
 
@@ -23,6 +24,8 @@ export const createDownloadRequestSchema = z.strictObject({
 		.min(1, 'Select at least one track')
 		.max(maxDownloadItems, `Select at most ${maxDownloadItems} tracks`)
 		.refine((ids) => new Set(ids).size === ids.length, 'A track is selected twice'),
+	// The setting applies when absent
+	outputFormat: outputFormatSchema.optional(),
 });
 
 export type CreateDownloadRequest = z.infer<typeof createDownloadRequestSchema>;
@@ -42,7 +45,10 @@ export type DownloadFailureReason =
 	| 'unavailable'
 	| 'network'
 	| 'timed-out'
-	| 'failed';
+	| 'failed'
+	| 'unsupported-source'
+	| 'ffmpeg-unavailable'
+	| 'conversion';
 
 /** What the user reads for each failure; the tool output stays in the item log. */
 export const downloadFailureMessages: Record<DownloadFailureReason, string> = {
@@ -52,6 +58,10 @@ export const downloadFailureMessages: Record<DownloadFailureReason, string> = {
 	network: 'The site could not be reached. Check your internet connection and try again.',
 	'timed-out': 'The site took too long to answer. Try again later.',
 	failed: 'yt-dlp could not download this track.',
+	'unsupported-source':
+		'Luz cannot keep the audio of this track as is. Download it as MP3 instead.',
+	'ffmpeg-unavailable': 'FFmpeg is not available. See the Tools section of Settings.',
+	conversion: 'FFmpeg could not convert this track.',
 };
 
 /** The failure of a download, from the reason yt-dlp's error lines give (see classifyYtDlpError). */
@@ -87,7 +97,7 @@ export interface DownloadItem {
 	thumbnailUrl?: string;
 	title: string;
 	tags: TrackTags;
-	/** Where the file will land in the library, as in the preview (format chosen in #84). */
+	/** Where the file will land in the library, as in the preview; the format adds the extension. */
 	pathWithoutExtension: string;
 	state: DownloadState;
 	error?: DownloadFailure;
@@ -105,6 +115,8 @@ export interface DownloadJob {
 	url: string;
 	kind: AnalyzedKind;
 	title: string;
+	/** What the items end in, chosen when the job was queued. */
+	outputFormat: OutputFormat;
 	state: DownloadState;
 	error?: DownloadFailure;
 	/** Milliseconds since the epoch. */

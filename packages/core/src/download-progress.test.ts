@@ -109,6 +109,7 @@ describe('event payloads', () => {
 			url: 'https://example.com',
 			kind: 'track',
 			title: 'First',
+			outputFormat: 'source',
 			state: 'running',
 			createdAt: 1,
 			itemCount: 1,

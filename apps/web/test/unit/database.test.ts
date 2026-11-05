@@ -39,6 +39,7 @@ describe('loadMigrations', () => {
 			'0006_add_settings_naming_template',
 			'0007_create_downloads',
 			'0008_add_download_item_progress',
+			'0009_add_output_format',
 		]);
 		expect(migrations[0]?.statements[0]).toMatch(/^CREATE TABLE `settings`/);
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
@@ -75,6 +76,8 @@ describe('loadMigrations', () => {
 				'1793886357338:736ab78349d1cc175ce88e0edb3feb1b9f0013eebf0827bffc15d0777f4464d8',
 			'0008_add_download_item_progress':
 				'1793889762227:ac07d5567d04da100889bf9b4cbb3642441a3dfc4a7b809ce15d7af075686260',
+			'0009_add_output_format':
+				'1793892349007:a785ddc25e01b1953700ecd7ad3a052fb0e17bbbad7686929637b3ca8ed919b5',
 		});
 	});
 
@@ -158,6 +161,7 @@ describe('database', () => {
 			'0006_add_settings_naming_template',
 			'0007_create_downloads',
 			'0008_add_download_item_progress',
+			'0009_add_output_format',
 		]);
 		expect(await migrate()).toEqual([]);
 	});
@@ -209,7 +213,7 @@ describe('database', () => {
 			await db.update(settings).set({ musicLibraryPath: '/music' });
 
 			expect(await db.select().from(settings)).toEqual([
-				{ id: 1, musicLibraryPath: '/music', namingTemplate: null },
+				{ id: 1, musicLibraryPath: '/music', namingTemplate: null, outputFormat: null },
 			]);
 		});
 
@@ -240,9 +244,10 @@ describe('database', () => {
 			'0006_add_settings_naming_template',
 			'0007_create_downloads',
 			'0008_add_download_item_progress',
+			'0009_add_output_format',
 		]);
 		expect(await db.select().from(settings)).toEqual([
-			{ id: 1, musicLibraryPath: '/music', namingTemplate: null },
+			{ id: 1, musicLibraryPath: '/music', namingTemplate: null, outputFormat: null },
 		]);
 		expect(await failureOf('INSERT INTO settings (id) VALUES (2)')).toMatch(
 			/CHECK constraint failed: settings_single_row/,
@@ -263,7 +268,7 @@ describe('database', () => {
 		await applyMigrations(db.$client, migrations);
 
 		expect(await db.select().from(settings)).toEqual([
-			{ id: 1, musicLibraryPath: '/music', namingTemplate: null },
+			{ id: 1, musicLibraryPath: '/music', namingTemplate: null, outputFormat: null },
 		]);
 	});
 

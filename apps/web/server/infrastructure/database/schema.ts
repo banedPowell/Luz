@@ -4,6 +4,7 @@ import type {
 	DownloadFailureReason,
 	DownloadState,
 	DownloadStep,
+	OutputFormat,
 	TrackTags,
 } from '@luz/core';
 import { check, index, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
@@ -21,6 +22,8 @@ export const settings = sqliteTable(
 		musicLibraryPath: text('music_library_path'),
 		// Null only in a row written before the column existed, until ensureSettings() fills it
 		namingTemplate: text('naming_template'),
+		// Null only in a row written before the column existed, like the naming template
+		outputFormat: text('output_format').$type<OutputFormat>(),
 	},
 	(table) => [check('settings_single_row', sql`${table.id} = 1`)],
 );
@@ -112,6 +115,8 @@ export const downloadJobs = sqliteTable(
 		url: text('url').notNull(),
 		kind: text('kind').$type<AnalyzedKind>().notNull(),
 		title: text('title').notNull(),
+		// The jobs queued before the column existed were downloaded as the source gave them
+		outputFormat: text('output_format').$type<OutputFormat>().notNull().default('source'),
 		state: text('state').$type<DownloadState>().notNull(),
 		// Set when the job failed as a whole ("interrupted")
 		errorReason: text('error_reason').$type<DownloadFailureReason>(),
@@ -138,7 +143,7 @@ export const downloadItems = sqliteTable(
 		url: text('url'),
 		thumbnailUrl: text('thumbnail_url'),
 		title: text('title').notNull(),
-		// The TrackTags of the analysis, written to the file later (#84): an opaque payload
+		// The TrackTags of the analysis, written to the file by FFmpeg: an opaque payload
 		tags: text('tags', { mode: 'json' }).$type<TrackTags>().notNull(),
 		pathWithoutExtension: text('path_without_extension').notNull(),
 		state: text('state').$type<DownloadState>().notNull(),

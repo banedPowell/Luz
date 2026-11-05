@@ -28,10 +28,18 @@ describe('settings API', async () => {
 	it('updates the settings and returns them', async () => {
 		const updated = await $fetch<Settings>('/api/settings', {
 			method: 'PATCH',
-			body: { musicLibraryPath: ' /music ', namingTemplate: ' {album}/{title} ' },
+			body: {
+				musicLibraryPath: ' /music ',
+				namingTemplate: ' {album}/{title} ',
+				outputFormat: 'mp3-320',
+			},
 		});
 
-		expect(updated).toEqual({ musicLibraryPath: '/music', namingTemplate: '{album}/{title}' });
+		expect(updated).toEqual({
+			musicLibraryPath: '/music',
+			namingTemplate: '{album}/{title}',
+			outputFormat: 'mp3-320',
+		});
 		expect(await $fetch<Settings>('/api/settings')).toEqual(updated);
 	});
 
@@ -40,6 +48,7 @@ describe('settings API', async () => {
 		{ theme: 'dark' },
 		{ musicLibraryPath: 'relative/music' },
 		{ namingTemplate: '../{title}' },
+		{ outputFormat: 'flac' },
 		{ volume: 3 },
 	])('rejects the invalid patch %j with a 400', async (body) => {
 		const response = await fetch('/api/settings', {
@@ -52,6 +61,7 @@ describe('settings API', async () => {
 		expect(await $fetch<Settings>('/api/settings')).toEqual({
 			musicLibraryPath: '/music',
 			namingTemplate: '{album}/{title}',
+			outputFormat: 'mp3-320',
 		});
 	});
 
@@ -95,6 +105,7 @@ describe('settings API', async () => {
 
 		expect(await $fetch<Settings>('/api/settings')).toEqual({
 			namingTemplate: '{album}/{title}',
+			outputFormat: 'mp3-320',
 		});
 	});
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 
+import { defaultOutputFormat } from './download-format.ts';
 import { defaultNamingTemplate } from './naming.ts';
 import { defaultSettings, settingsPatchSchema, settingsSchema, themeSchema } from './settings.ts';
 
@@ -15,13 +16,24 @@ describe('themeSchema', () => {
 
 describe('settingsSchema', () => {
 	it('fills in the defaults for an empty object', () => {
-		expect(settingsSchema.parse({})).toEqual({ namingTemplate: defaultNamingTemplate });
+		expect(settingsSchema.parse({})).toEqual({
+			namingTemplate: defaultNamingTemplate,
+			outputFormat: defaultOutputFormat,
+		});
 	});
 
 	it('keeps valid values', () => {
 		expect(
-			settingsSchema.parse({ musicLibraryPath: '/music', namingTemplate: '{album}/{title}' }),
-		).toEqual({ musicLibraryPath: '/music', namingTemplate: '{album}/{title}' });
+			settingsSchema.parse({
+				musicLibraryPath: '/music',
+				namingTemplate: '{album}/{title}',
+				outputFormat: 'mp3-128',
+			}),
+		).toEqual({
+			musicLibraryPath: '/music',
+			namingTemplate: '{album}/{title}',
+			outputFormat: 'mp3-128',
+		});
 	});
 
 	it('trims the library path', () => {
@@ -48,7 +60,10 @@ describe('settingsSchema', () => {
 
 describe('defaultSettings', () => {
 	it('has no library path and the default naming template', () => {
-		expect(defaultSettings).toEqual({ namingTemplate: defaultNamingTemplate });
+		expect(defaultSettings).toEqual({
+			namingTemplate: defaultNamingTemplate,
+			outputFormat: 'source',
+		});
 		expect('musicLibraryPath' in defaultSettings).toBe(false);
 	});
 });
@@ -95,6 +110,8 @@ describe('settingsPatchSchema', () => {
 		{ volume: 3 },
 		{ namingTemplate: null },
 		{ namingTemplate: '' },
+		{ outputFormat: 'flac' },
+		{ outputFormat: null },
 		{ namingTemplate: '/{title}' },
 	])('rejects %j', (input) => {
 		expect(settingsPatchSchema.safeParse(input).success).toBe(false);

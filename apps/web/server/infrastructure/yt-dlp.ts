@@ -2,6 +2,7 @@ import {
 	classifyYtDlpError,
 	parseProgressLine,
 	progressTemplate,
+	thumbnailSuffix,
 	ytDlpInfoSchema,
 	type AnalysisErrorReason,
 	type DownloadProgress,
@@ -40,7 +41,10 @@ export interface DownloadOptions {
 export interface YtDlp {
 	/** Reads what a URL holds, without downloading anything. */
 	analyze(url: string, options?: { signal?: AbortSignal }): Promise<YtDlpAnalysis>;
-	/** Downloads the best audio of one item, as the site serves it (conversion is #84). */
+	/**
+	 * Downloads the best audio of one item as the site serves it, and its thumbnail as
+	 * `<fileStem>.cover.<ext>` when there is one; FFmpeg converts and tags afterwards.
+	 */
 	download(url: string, options: DownloadOptions): Promise<YtDlpDownload>;
 }
 
@@ -94,6 +98,10 @@ export function createYtDlp(
 					directory,
 					'--output',
 					`${fileStem}.%(ext)s`,
+					// A missing thumbnail is only a warning: the file then has no cover
+					'--write-thumbnail',
+					'--output',
+					`thumbnail:${fileStem}${thumbnailSuffix}.%(ext)s`,
 					'--',
 					url,
 				],

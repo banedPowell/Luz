@@ -18,12 +18,17 @@ export async function ensureSettings(db: Database): Promise<void> {
 			id: settingsRowId,
 			musicLibraryPath: defaultSettings.musicLibraryPath ?? null,
 			namingTemplate: defaultSettings.namingTemplate,
+			outputFormat: defaultSettings.outputFormat,
 		})
 		.onConflictDoNothing();
 	await db
 		.update(settings)
 		.set({ namingTemplate: defaultSettings.namingTemplate })
 		.where(isNull(settings.namingTemplate));
+	await db
+		.update(settings)
+		.set({ outputFormat: defaultSettings.outputFormat })
+		.where(isNull(settings.outputFormat));
 }
 
 export async function readSettings(db: Database): Promise<Settings> {
@@ -41,6 +46,9 @@ export async function writeSettings(db: Database, patch: SettingsPatch): Promise
 	}
 	if (patch.namingTemplate !== undefined) {
 		changes.namingTemplate = patch.namingTemplate;
+	}
+	if (patch.outputFormat !== undefined) {
+		changes.outputFormat = patch.outputFormat;
 	}
 
 	if (Object.keys(changes).length === 0) {
@@ -60,7 +68,8 @@ export async function writeSettings(db: Database, patch: SettingsPatch): Promise
 // A null column becomes an absent key or the default, as in the core schema
 function toSettings(row: typeof settings.$inferSelect): Settings {
 	const namingTemplate = row.namingTemplate ?? defaultSettings.namingTemplate;
+	const outputFormat = row.outputFormat ?? defaultSettings.outputFormat;
 	return row.musicLibraryPath === null
-		? { namingTemplate }
-		: { musicLibraryPath: row.musicLibraryPath, namingTemplate };
+		? { namingTemplate, outputFormat }
+		: { musicLibraryPath: row.musicLibraryPath, namingTemplate, outputFormat };
 }
