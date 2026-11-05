@@ -57,7 +57,7 @@ watch(
 			</template>
 
 			<template #footer="{ state }">
-				<ThemeSelect :collapsed="state === 'collapsed'" class="w-full" />
+				<ThemeSelect :collapsed="state === 'collapsed'" />
 			</template>
 		</USidebar>
 
