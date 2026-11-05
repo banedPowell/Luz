@@ -7,6 +7,7 @@ import type {
 	TrackDetail,
 	TrackSummary,
 } from '@luz/core';
+import { cassetteColor } from '@luz/core';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { NuxtPage, UApp } from '#components';
 import { createError, getQuery } from 'h3';
@@ -434,6 +435,21 @@ describe('library views', () => {
 		expect(wrapper.find('h3 a[href="/library/albums/10"]').text()).toBe('Alpha One');
 		expect(wrapper.find('h3').element.parentElement?.textContent).toContain('Lossless');
 		expect(wrapper.findAll('tbody tr')).toHaveLength(3);
+	});
+
+	// One cover per album row, none repeated on the track rows of an album or artist page
+	it.each([
+		['/library', ['alpha', 'neutral']],
+		['/library/albums', ['alpha', 'neutral']],
+		['/library/albums/10', ['alpha']],
+		['/library/artists/1', ['alpha']],
+	])('shows a cassette for each album on %s, grey when unknown', async (path, expected) => {
+		const wrapper = await mountAt(path);
+		const alphaColor = cassetteColor('Alpha One', 'Alpha');
+
+		expect(
+			wrapper.findAll('[data-color]').map((cover) => cover.attributes('data-color')),
+		).toEqual(expected.map((color) => (color === 'alpha' ? alphaColor : color)));
 	});
 
 	it('marks the view of a detail page as current', async () => {

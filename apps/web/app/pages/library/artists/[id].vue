@@ -25,7 +25,8 @@ if (error.value) {
 			class="flex flex-col gap-2"
 			:aria-labelledby="`album-${album.id}`"
 		>
-			<div class="flex flex-wrap items-center gap-2">
+			<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+				<AlbumCover :album="album.title" :artist="data.name" class="me-1 size-12" />
 				<h3 :id="`album-${album.id}`" class="font-semibold text-highlighted">
 					<ULink :to="`/library/albums/${album.id}`">{{ albumTitle(album.title) }}</ULink>
 					<span v-if="album.year" class="font-normal text-muted">

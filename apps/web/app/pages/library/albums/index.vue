@@ -55,9 +55,16 @@ const columns: TableColumn<AlbumSummary>[] = [
 			caption="Albums"
 		>
 			<template #title-cell="{ row }">
-				<ULink :to="`/library/albums/${row.original.id}`" class="font-medium">
-					{{ albumTitle(row.original.title) }}
-				</ULink>
+				<div class="flex items-center gap-3">
+					<AlbumCover
+						:album="row.original.title"
+						:artist="row.original.artist.name"
+						class="size-8"
+					/>
+					<ULink :to="`/library/albums/${row.original.id}`" class="font-medium">
+						{{ albumTitle(row.original.title) }}
+					</ULink>
+				</div>
 			</template>
 			<template #artist-cell="{ row }">
 				<ULink :to="`/library/artists/${row.original.artist.id}`">
