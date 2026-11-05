@@ -119,7 +119,25 @@ export async function finishDownloadJob(
 }
 
 export async function startDownloadItem(db: Database, itemId: number): Promise<void> {
-	await db.update(downloadItems).set({ state: 'running' }).where(eq(downloadItems.id, itemId));
+	await db
+		.update(downloadItems)
+		.set({ state: 'running', step: 'downloading', progressPercent: 0 })
+		.where(eq(downloadItems.id, itemId));
+}
+
+/** Records how far a running item has come; an item that already ended keeps its outcome. */
+export async function updateDownloadItemProgress(
+	db: Database,
+	itemId: number,
+	progress: { percent: number; speedBytesPerSecond?: number },
+): Promise<void> {
+	await db
+		.update(downloadItems)
+		.set({
+			progressPercent: progress.percent,
+			speedBytesPerSecond: progress.speedBytesPerSecond ?? null,
+		})
+		.where(and(eq(downloadItems.id, itemId), eq(downloadItems.state, 'running')));
 }
 
 /** Ends an item, keeps its log and counts it in its job. */
@@ -134,6 +152,9 @@ export async function finishDownloadItem(
 			.set({
 				state: outcome.state,
 				errorReason: outcome.errorReason ?? null,
+				// A finished item is whole; a failed one keeps the percent it reached
+				...(outcome.state === 'completed' ? { progressPercent: 100 } : {}),
+				speedBytesPerSecond: null,
 				log: outcome.log,
 			})
 			.where(eq(downloadItems.id, item.id));
@@ -161,7 +182,7 @@ export async function endUnfinishedItems(
 	await db.transaction(async (tx) => {
 		const ended = await tx
 			.update(downloadItems)
-			.set({ state, errorReason: errorReason ?? null })
+			.set({ state, errorReason: errorReason ?? null, speedBytesPerSecond: null })
 			.where(
 				and(
 					eq(downloadItems.jobId, jobId),
@@ -238,6 +259,11 @@ function toItem(row: ItemRow): DownloadItem {
 		pathWithoutExtension: row.pathWithoutExtension,
 		state: row.state,
 		...(row.errorReason === null ? {} : { error: downloadFailure(row.errorReason) }),
+		...(row.step === null ? {} : { step: row.step }),
+		...(row.progressPercent === null ? {} : { progressPercent: row.progressPercent }),
+		...(row.speedBytesPerSecond === null
+			? {}
+			: { speedBytesPerSecond: row.speedBytesPerSecond }),
 		log: row.log,
 	};
 }

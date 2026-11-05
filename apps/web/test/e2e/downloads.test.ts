@@ -44,6 +44,14 @@ describe('downloads API', async () => {
 		expect(await $fetch<DownloadJob[]>('/api/downloads')).toEqual([]);
 	});
 
+	it('opens the stream of events', async () => {
+		const controller = new AbortController();
+		const response = await fetch('/api/downloads/events', { signal: controller.signal });
+		expect(response.status).toBe(200);
+		expect(response.headers.get('content-type')).toContain('text/event-stream');
+		controller.abort();
+	});
+
 	it('answers 404 when cancelling an unknown job, 400 for an invalid id', async () => {
 		expect((await fetch('/api/downloads/42', { method: 'DELETE' })).status).toBe(404);
 		expect((await fetch('/api/downloads/abc', { method: 'DELETE' })).status).toBe(400);

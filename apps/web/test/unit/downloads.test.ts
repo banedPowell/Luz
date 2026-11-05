@@ -1,10 +1,18 @@
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { defaultSettings, type DownloadJob, type ToolStatus, type YtDlpInfo } from '@luz/core';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+	defaultSettings,
+	progressTemplate,
+	type DownloadEvent,
+	type DownloadJob,
+	type DownloadProgress,
+	type ToolStatus,
+	type YtDlpInfo,
+} from '@luz/core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
 import {
@@ -14,7 +22,11 @@ import {
 } from '../../server/infrastructure/database/download-repository';
 import { applyMigrations, loadMigrations } from '../../server/infrastructure/database/migrations';
 import { createDirectory, removeDirectory } from '../../server/infrastructure/file-system';
-import type { ProcessRunner, RunOptions } from '../../server/infrastructure/process-runner';
+import {
+	createProcessRunner,
+	type ProcessRunner,
+	type RunOptions,
+} from '../../server/infrastructure/process-runner';
 import {
 	createYtDlp,
 	type DownloadOptions,
@@ -71,20 +83,35 @@ class FakeYtDlp implements YtDlp {
 		options.onLine?.(`[download] Destination: ${options.fileStem}.webm`);
 		const behaviour = this.behaviours.get(url) ?? 'ok';
 		if (behaviour === 'hang') {
+			this.progress(options, 30, 100);
 			await writeFile(
 				path.join(options.directory, `${options.fileStem}.webm.part`),
 				'partial',
 			);
 			this.started?.();
 			await new Promise((resolve) => options.signal?.addEventListener('abort', resolve));
+			// A line the dying process still prints must not reach the screen
+			this.progress(options, 35, 900);
 			return { ok: false, reason: 'aborted' };
 		}
 		if (behaviour === 'fail') {
 			options.onLine?.('ERROR: [generic] Unable to download webpage: getaddrinfo failed');
 			return { ok: false, reason: 'network' };
 		}
+		// 11 comes 100 ms after 10: too soon to be sent. 100 ends the item, whatever the delay.
+		this.progress(options, 10, 0);
+		this.progress(options, 11, 100);
+		this.progress(options, 60, 300);
+		options.onLine?.('[download] 100% of 5.00KiB');
+		this.progress(options, 100, 301);
 		await writeFile(path.join(options.directory, `${options.fileStem}.webm`), 'audio');
 		return { ok: true };
+	}
+
+	/** Prints a progress line at `atMs` on the queue's clock. */
+	private progress(options: DownloadOptions, percent: number, atMs: number) {
+		clock = atMs;
+		options.onProgress?.({ percent, speedBytesPerSecond: percent * 1000 });
 	}
 }
 
@@ -92,6 +119,9 @@ let dataDir: string;
 let db: Database;
 let ytDlp: FakeYtDlp;
 let queue: DownloadQueue;
+let emitted: DownloadEvent[];
+// The queue's clock, moved by the fake yt-dlp to make the throttling testable
+let clock = 0;
 
 const available: ToolStatus = { tool: 'yt-dlp', command: 'yt-dlp', state: 'available' };
 
@@ -111,6 +141,8 @@ function newQueue(): DownloadQueue {
 		downloadsDirectory: path.join(dataDir, 'downloads'),
 		createDirectory,
 		removeDirectory,
+		now: () => clock,
+		events: { emit: (event) => emitted.push(event) },
 		logger: { info: () => undefined, error: () => undefined },
 	});
 }
@@ -132,6 +164,8 @@ beforeEach(async () => {
 	db = openDatabase(dataDir);
 	await applyMigrations(db.$client, await loadMigrations(readMigrationsFolder));
 	ytDlp = new FakeYtDlp();
+	emitted = [];
+	clock = 0;
 	queue = newQueue();
 });
 
@@ -190,11 +224,61 @@ describe('download queue', () => {
 		]);
 		for (const item of done.items) {
 			expect(item.state).toBe('completed');
-			expect(item.log).toEqual([`[download] Destination: ${item.id}.webm`]);
+			expect(item.log).toEqual([
+				`[download] Destination: ${item.id}.webm`,
+				'[download] 100% of 5.00KiB',
+			]);
 			expect(
 				existsSync(path.join(dataDir, 'downloads', `${job.id}`, `${item.id}.webm`)),
 			).toBe(true);
 		}
+	});
+
+	it('records the progress of an item, a few updates per second at most', async () => {
+		const job = await queueJob(['a']);
+		await queue.wake();
+
+		const [item] = (await jobOf(job.id)).items;
+		expect(item).toMatchObject({
+			state: 'completed',
+			step: 'downloading',
+			progressPercent: 100,
+		});
+		expect(item?.speedBytesPerSecond).toBeUndefined();
+		const running = emitted.flatMap((event) =>
+			event.type === 'item' && event.item.state === 'running' ? [event.item] : [],
+		);
+		// 0 as the item starts, then 10 and 60: 11 came too soon, and 100 is the last one sent
+		expect(running.map((update) => update.progressPercent)).toEqual([0, 10, 60, 100]);
+		expect(running[2]).toEqual({
+			id: item?.id,
+			state: 'running',
+			step: 'downloading',
+			progressPercent: 60,
+			speedBytesPerSecond: 60_000,
+		});
+	});
+
+	it('announces the job and its items as they change, without their log', async () => {
+		const job = await queueJob(['a', 'b']);
+		await queue.wake();
+
+		const jobStates = emitted.flatMap((event) =>
+			event.type === 'job' ? [event.job.state] : [],
+		);
+		expect(jobStates[0]).toBe('running');
+		expect(jobStates.at(-1)).toBe('completed');
+		expect(emitted.findLast((event) => event.type === 'job')).toMatchObject({
+			job: { id: job.id, completedCount: 2 },
+		});
+		for (const event of emitted) {
+			expect(event).not.toHaveProperty('item.log');
+			expect(event).not.toHaveProperty('job.items');
+		}
+		const ended = emitted.filter(
+			(event) => event.type === 'item' && event.item.state === 'completed',
+		);
+		expect(ended).toHaveLength(2);
 	});
 
 	it('runs the jobs one at a time, in creation order', async () => {
@@ -262,6 +346,40 @@ describe('download queue', () => {
 		expect(existsSync(path.join(dataDir, 'downloads', `${job.id}`))).toBe(false);
 	});
 
+	it('announces a cancellation, and nothing a killed process still prints', async () => {
+		ytDlp.behaviours.set('https://example.com/a', 'hang');
+		const job = await queueJob();
+		const hanging = ytDlp.hanging();
+		const running = queue.wake();
+		await hanging;
+
+		await queue.cancel(job.id);
+		await running;
+
+		expect(emitted.findLast((event) => event.type === 'job')).toMatchObject({
+			job: { id: job.id, state: 'cancelled' },
+		});
+		const progress = emitted.flatMap((event) =>
+			event.type === 'item' && event.item.state === 'running'
+				? [event.item.progressPercent]
+				: [],
+		);
+		// 0 as it starts, 30 while it runs; the 35 printed after the abort is dropped
+		expect(progress).toEqual([0, 30]);
+		const states = emitted.flatMap((event) =>
+			event.type === 'item' ? [event.item.state] : [],
+		);
+		expect(states.slice(-3)).toEqual(['cancelled', 'cancelled', 'cancelled']);
+	});
+
+	it('announces a job cancelled while it waits', async () => {
+		const job = await queueJob(['a']);
+
+		await queue.cancel(job.id);
+
+		expect(emitted[0]).toMatchObject({ type: 'job', job: { id: job.id, state: 'cancelled' } });
+	});
+
 	it('refuses to cancel a finished or unknown job', async () => {
 		const job = await queueJob(['a']);
 		await queue.wake();
@@ -299,12 +417,14 @@ describe('yt-dlp download', () => {
 		const runner: ProcessRunner = {
 			async run(_command, options) {
 				calls.push(options);
-				options.onStdoutLine?.('[download]  50.0% of 3.00MiB');
+				options.onStdoutLine?.('[download] Destination: 7.webm');
+				options.onStdoutLine?.('luz-progress|1572864|3145728|NA|524288');
 				options.onStderrLine?.('WARNING: slow');
 				return { outcome: 'exited', exitCode: 0 };
 			},
 		};
 		const lines: string[] = [];
+		const updates: DownloadProgress[] = [];
 		const controller = new AbortController();
 
 		const result = await createYtDlp(runner, 'yt-dlp').download('https://example.com/a', {
@@ -312,12 +432,15 @@ describe('yt-dlp download', () => {
 			fileStem: '7',
 			signal: controller.signal,
 			onLine: (line) => lines.push(line),
+			onProgress: (progress) => updates.push(progress),
 		});
 
 		expect(result).toEqual({ ok: true });
 		expect(calls[0]?.args).toEqual([
 			'--no-playlist',
 			'--newline',
+			'--progress-template',
+			progressTemplate,
 			'--format',
 			'bestaudio/best',
 			'--paths',
@@ -328,7 +451,9 @@ describe('yt-dlp download', () => {
 			'https://example.com/a',
 		]);
 		expect(calls[0]?.signal).toBe(controller.signal);
-		expect(lines).toEqual(['[download]  50.0% of 3.00MiB', 'WARNING: slow']);
+		// Progress lines feed the bar, not the log
+		expect(lines).toEqual(['[download] Destination: 7.webm', 'WARNING: slow']);
+		expect(updates).toEqual([{ percent: 50, speedBytesPerSecond: 524_288 }]);
 	});
 
 	it('names the reason of a failure, and an abort as such', async () => {
@@ -351,3 +476,63 @@ describe('yt-dlp download', () => {
 		});
 	});
 });
+
+describe('cancelling a real process', () => {
+	// What the process runner promises, seen from the queue: aborting kills the program
+	// that is downloading, not just the promise waiting for it.
+	it('kills the process of a running item and removes the job folder', async () => {
+		const pidFile = path.join(dataDir, 'pid.txt');
+		const script = `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`;
+		const runner = createProcessRunner();
+		const real: YtDlp = {
+			analyze: async () => ({ ok: true, info: playlist }),
+			async download(_url, options) {
+				await writeFile(
+					path.join(options.directory, `${options.fileStem}.webm.part`),
+					'partial',
+				);
+				const result = await runner.run(process.execPath, {
+					args: ['-e', script],
+					signal: options.signal,
+				});
+				return result.outcome === 'aborted'
+					? { ok: false, reason: 'aborted' }
+					: { ok: false, reason: 'failed' };
+			},
+		};
+		queue = createDownloadQueue({
+			db,
+			ytDlp: real,
+			downloadsDirectory: path.join(dataDir, 'downloads'),
+			createDirectory,
+			removeDirectory,
+			events: { emit: () => undefined },
+			logger: { info: () => undefined, error: () => undefined },
+		});
+		const job = await queueJob(['a']);
+		const running = queue.wake();
+		const pid = Number(
+			await vi.waitFor(() => readFileSync(pidFile, 'utf8'), {
+				timeout: 10_000,
+				interval: 25,
+			}),
+		);
+		expect(isAlive(pid)).toBe(true);
+
+		expect(await queue.cancel(job.id)).toBe('cancelled');
+		await running;
+
+		await vi.waitFor(() => expect(isAlive(pid)).toBe(false), { timeout: 5000 });
+		expect((await jobOf(job.id)).state).toBe('cancelled');
+		expect(existsSync(path.join(dataDir, 'downloads', `${job.id}`))).toBe(false);
+	});
+});
+
+function isAlive(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch {
+		return false;
+	}
+}
