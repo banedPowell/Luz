@@ -48,7 +48,7 @@ It starts as a web app for one person on their own computer, then becomes a self
 
 - Analyse a URL (track or playlist) with yt-dlp and preview what will be downloaded.
 - Download queue with live progress, cancellation and per-job logs.
-- Choose format and quality; FFmpeg handles conversion and artwork embedding.
+- Choose format and quality: the source audio as is by default, or MP3 at a chosen bitrate. FFmpeg handles conversion and artwork embedding. Converting a lossy source to a lossless format is not offered: it makes files bigger, not better.
 - Naming templates for files and folders, applied to every download.
 - Downloaded files land in the library like scanned ones.
 - Interface refresh, since downloads need the new shell: DM Sans, three-icon theme switch, inset sidebar with a wider main area and a mobile drawer, a home page, keyboard shortcuts and a "New" badge on recent additions. The rules are in the [interface principles](design/interface-principles.md).
