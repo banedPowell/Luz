@@ -9,6 +9,7 @@ export default defineVitestProject({
 		name: 'web',
 		include: ['test/nuxt/**/*.test.ts'],
 		environment: 'nuxt',
+		setupFiles: ['test/nuxt/setup.ts'],
 		environmentOptions: {
 			nuxt: {
 				// Tests are started from the repository root, where Nuxt is not installed

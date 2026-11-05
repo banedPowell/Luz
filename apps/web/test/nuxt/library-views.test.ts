@@ -9,10 +9,9 @@ import type {
 } from '@luz/core';
 import { cassetteColor } from '@luz/core';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
-import { enableAutoUnmount } from '@vue/test-utils';
 import { NuxtPage, UApp } from '#components';
 import { createError, getQuery } from 'h3';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, nextTick } from 'vue';
 
 // The sort select opens a popover, which needs the providers of UApp
@@ -138,10 +137,6 @@ async function mountAt(route: string) {
 	await useSettings().load();
 	return mountSuspended(LibraryPages, { route });
 }
-
-// A page left mounted keeps following the shared router: each later test would render it
-// again, and the file slows down test after test until one times out
-enableAutoUnmount(afterEach);
 
 describe('library views', () => {
 	beforeEach(() => {
