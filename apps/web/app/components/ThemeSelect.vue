@@ -47,7 +47,7 @@ function choose(theme: Theme) {
 					color="neutral"
 					variant="ghost"
 					square
-					class="rounded-full max-lg:p-2.5"
+					class="rounded-full max-md:p-2.5"
 					:class="
 						colorMode.preference === option.value
 							? 'bg-default text-highlighted shadow-xs ring ring-default hover:bg-default'

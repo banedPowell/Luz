@@ -81,6 +81,7 @@ function countOf(group: SearchGroup<unknown>, word: string): string {
 							{{ trackArtists(track) }} · {{ albumTitle(track.album.title) }}
 						</span>
 					</div>
+					<TrackFormat :track="track" />
 					<TrackMenu :track="track" />
 				</li>
 			</ul>

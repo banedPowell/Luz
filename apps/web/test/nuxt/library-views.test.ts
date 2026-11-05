@@ -289,6 +289,39 @@ describe('library views', () => {
 		);
 	});
 
+	it('shows compact track rows under md: the format beside the title, the other columns hidden', async () => {
+		trackPage = pageOf([track(1), track(2, { codec: null })]);
+
+		const wrapper = await mountAt('/library');
+
+		const headers = wrapper.findAll('thead th');
+		// Checkbox, title and actions stay; #, album, duration and date added wait for md
+		expect(headers.map((cell) => cell.classes().includes('hidden'))).toEqual([
+			false,
+			true,
+			false,
+			true,
+			true,
+			true,
+			false,
+		]);
+		const rows = wrapper.findAll('tbody tr');
+		const format = rows[0]?.findAll('td')[2]?.find('span.text-xs');
+		expect(format?.text()).toBe('FLAC');
+		expect(format?.classes()).toContain('md:hidden');
+		// An unknown codec draws nothing rather than a placeholder
+		expect(rows[1]?.findAll('td')[2]?.find('span.text-xs').exists()).toBe(false);
+	});
+
+	it('shows the format of each track of an album on narrow screens', async () => {
+		album = { ...album, tracks: [track(1), track(2, { codec: 'MP3' })] };
+
+		const wrapper = await mountAt('/library/albums/10');
+
+		const formats = wrapper.findAll('tbody tr').map((row) => row.find('span.text-xs').text());
+		expect(formats).toEqual(['FLAC', 'MP3']);
+	});
+
 	it('groups the sort selector with its order button, still sorting by artist', async () => {
 		const wrapper = await mountAt('/library?sort=artist&order=desc');
 
@@ -364,10 +397,10 @@ describe('library views', () => {
 		const cells = row.findAll('td');
 		expect(cells[1]?.classes()).toContain('max-w-0');
 		expect(cells[2]?.classes()).toEqual(expect.arrayContaining(['max-w-0', 'hidden']));
-		// Under the title on narrow screens, in its own column from sm up
+		// Under the title on narrow screens, in its own column from md up
 		const artists = row.findAll('a[href="/library/artists/1"]');
 		expect(artists.map((link) => link.classes())).toEqual([
-			expect.arrayContaining(['truncate', 'sm:hidden']),
+			expect.arrayContaining(['truncate', 'md:hidden']),
 			expect.arrayContaining(['truncate']),
 		]);
 		expect(artists.map((link) => link.attributes('title'))).toEqual(['Alpha', 'Alpha']);
@@ -380,6 +413,17 @@ describe('library views', () => {
 		const rows = wrapper.findAll('tbody tr').map((row) => row.text());
 		expect(rows[0]).toContain('Lossless');
 		expect(rows[1]).toContain('Mixed');
+	});
+
+	it('moves the quality beside the album title on narrow screens', async () => {
+		const wrapper = await mountAt('/library/albums');
+
+		const cells = wrapper.find('tbody tr').findAll('td');
+		// The quality column waits for md, its badge stands in the title cell until then
+		expect(cells[1]?.text()).toContain('Lossless');
+		const badge = cells[1]?.findAll('span').find((span) => span.text() === 'Lossless');
+		expect(badge?.classes()).toContain('md:hidden');
+		expect(cells[4]?.classes()).toEqual(expect.arrayContaining(['hidden', 'md:table-cell']));
 	});
 
 	it('shows no quality badge while an album has tracks of unknown codec', async () => {
@@ -636,7 +680,9 @@ describe('library views', () => {
 		]);
 		const rows = wrapper.findAll('tbody tr');
 		expect(rows[0]?.text()).toContain('Alpha');
-		expect(rows[0]?.text()).not.toContain('FLAC');
+		// The codec only stands in for the hidden columns of a compact row, under md
+		expect(rows[0]?.find('span.text-xs').classes()).toContain('md:hidden');
+		expect(rows[0]?.text()).not.toContain('900 kbps');
 		expect(rows[0]?.text()).not.toContain('1.flac');
 		// An untitled track shows its file name as its title; an old one has no date added
 		expect(rows[1]?.findAll('td')[2]?.text()).toContain('untitled.mp3');

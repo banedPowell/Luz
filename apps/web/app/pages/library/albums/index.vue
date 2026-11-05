@@ -15,6 +15,9 @@ const sortOptions = [
 	{ label: 'Year', value: 'year' },
 ] as const;
 
+// Under md the rows are compact: cover, title with its artist, and the quality
+const wide = 'hidden md:table-cell';
+
 const columns: TableColumn<AlbumSummary>[] = [
 	// The checkboxes of the selection bar
 	{ id: 'select', meta: { class: { th: 'w-px pe-0', td: 'w-px pe-0' } } },
@@ -23,30 +26,25 @@ const columns: TableColumn<AlbumSummary>[] = [
 	{
 		id: 'title',
 		...sortable('Album'),
-		meta: { class: { td: 'w-full max-w-0 sm:w-3/5' } },
+		meta: { class: { td: 'w-full max-w-0 md:w-3/5' } },
 	},
 	{
 		id: 'artist',
 		...sortable('Artist'),
 		// On narrow screens the artist moves under the title, so the row fits without scrolling
-		meta: { class: { th: 'hidden sm:table-cell', td: 'hidden w-2/5 max-w-0 sm:table-cell' } },
+		meta: { class: { th: wide, td: `${wide} w-2/5 max-w-0` } },
 	},
-	{ id: 'year', ...sortable('Year') },
+	{ id: 'year', ...sortable('Year'), meta: { class: { th: wide, td: wide } } },
 	{
 		id: 'quality',
 		header: 'Quality',
-		// Hidden on narrow screens like the track count; the album page still shows it
-		meta: { class: { th: 'hidden sm:table-cell', td: 'hidden sm:table-cell' } },
+		// On narrow screens the badge moves into the title cell
+		meta: { class: { th: wide, td: wide } },
 	},
 	{
 		id: 'tracks',
 		header: 'Tracks',
-		meta: {
-			class: {
-				th: 'hidden text-end sm:table-cell',
-				td: 'hidden text-end tabular-nums sm:table-cell',
-			},
-		},
+		meta: { class: { th: `${wide} text-end`, td: `${wide} text-end tabular-nums` } },
 	},
 	{
 		id: 'actions',
@@ -162,11 +160,12 @@ const columns: TableColumn<AlbumSummary>[] = [
 						<ULink
 							:to="`/library/artists/${row.original.artist.id}`"
 							:title="artistName(row.original.artist.name)"
-							class="truncate text-sm text-muted sm:hidden"
+							class="truncate text-sm text-muted md:hidden"
 						>
 							{{ artistName(row.original.artist.name) }}
 						</ULink>
 					</div>
+					<AlbumQualityBadge :quality="row.original.quality" class="ms-auto md:hidden" />
 				</div>
 			</template>
 			<template #artist-cell="{ row }">
