@@ -21,7 +21,17 @@ const sortOptions = [
 const wide = 'hidden md:table-cell';
 
 const columns: TableColumn<TrackSummary>[] = [
-	{ id: 'number', header: '#', meta: { class: { td: 'w-12 tabular-nums text-muted' } } },
+	// Narrow screens show compact rows, cover then title, as the interface principles ask
+	{
+		id: 'number',
+		header: '#',
+		meta: {
+			class: {
+				th: 'hidden sm:table-cell',
+				td: 'hidden w-12 tabular-nums text-muted sm:table-cell',
+			},
+		},
+	},
 	{ id: 'title', ...sortable('Title') },
 	{
 		id: 'album',
@@ -71,7 +81,16 @@ function rowNumber(index: number): number {
 			caption="Tracks"
 		>
 			<template #number-cell="{ row }">{{ rowNumber(row.index) }}</template>
-			<template #title-cell="{ row }"><TrackTitle :track="row.original" /></template>
+			<template #title-cell="{ row }">
+				<div class="flex items-center gap-3">
+					<AlbumCover
+						:album="row.original.album.title"
+						:artist="row.original.artist.name"
+						class="size-8"
+					/>
+					<TrackTitle :track="row.original" />
+				</div>
+			</template>
 			<template #album-cell="{ row }">
 				<ULink
 					:to="`/library/albums/${row.original.album.id}`"

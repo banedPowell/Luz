@@ -53,8 +53,13 @@ function countOf(group: SearchGroup<unknown>, word: string): string {
 				<li
 					v-for="track in results.tracks.items"
 					:key="track.id"
-					class="flex items-center gap-2 py-2"
+					class="flex items-center gap-3 py-2"
 				>
+					<AlbumCover
+						:album="track.album.title"
+						:artist="track.artist.name"
+						class="size-10"
+					/>
 					<div class="flex min-w-0 flex-1 flex-col">
 						<ULink :to="`/library/albums/${track.album.id}`" class="font-medium">
 							{{ trackTitle(track) }}
@@ -81,17 +86,20 @@ function countOf(group: SearchGroup<unknown>, word: string): string {
 				<li
 					v-for="album in results.albums.items"
 					:key="album.id"
-					class="flex flex-col py-2"
+					class="flex items-center gap-3 py-2"
 				>
-					<ULink :to="`/library/albums/${album.id}`" class="font-medium">
-						{{ albumTitle(album.title) }}
-					</ULink>
-					<span class="text-sm text-muted">
-						<ULink :to="`/library/artists/${album.artist.id}`">
-							{{ artistName(album.artist.name) }}
+					<AlbumCover :album="album.title" :artist="album.artist.name" class="size-10" />
+					<div class="flex min-w-0 flex-col">
+						<ULink :to="`/library/albums/${album.id}`" class="font-medium">
+							{{ albumTitle(album.title) }}
 						</ULink>
-						<template v-if="album.year"> · {{ album.year }}</template>
-					</span>
+						<span class="text-sm text-muted">
+							<ULink :to="`/library/artists/${album.artist.id}`">
+								{{ artistName(album.artist.name) }}
+							</ULink>
+							<template v-if="album.year"> · {{ album.year }}</template>
+						</span>
+					</div>
 				</li>
 			</ul>
 		</section>

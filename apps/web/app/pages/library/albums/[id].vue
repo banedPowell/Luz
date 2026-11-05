@@ -11,21 +11,24 @@ if (error.value) {
 
 <template>
 	<section v-if="data" class="flex flex-col gap-4" aria-labelledby="album-title">
-		<div class="flex flex-col gap-1">
-			<div class="flex flex-wrap items-center gap-2">
-				<h2 id="album-title" class="text-xl font-semibold text-highlighted">
-					{{ albumTitle(data.title) }}
-				</h2>
-				<AlbumQualityBadge :quality="data.quality" />
+		<div class="flex items-center gap-4">
+			<AlbumCover :album="data.title" :artist="data.artist.name" class="size-24 sm:size-32" />
+			<div class="flex min-w-0 flex-col gap-1">
+				<div class="flex flex-wrap items-center gap-2">
+					<h2 id="album-title" class="text-xl font-semibold text-highlighted">
+						{{ albumTitle(data.title) }}
+					</h2>
+					<AlbumQualityBadge :quality="data.quality" />
+				</div>
+				<p class="text-sm text-muted">
+					<ULink :to="`/library/artists/${data.artist.id}`">
+						{{ artistName(data.artist.name) }}
+					</ULink>
+					<template v-if="data.year"> · {{ data.year }}</template>
+					· {{ plural(data.trackCount, 'track') }}
+				</p>
+				<AlbumFolders :folders="data.folders" class="mt-1" />
 			</div>
-			<p class="text-sm text-muted">
-				<ULink :to="`/library/artists/${data.artist.id}`">
-					{{ artistName(data.artist.name) }}
-				</ULink>
-				<template v-if="data.year"> · {{ data.year }}</template>
-				· {{ plural(data.trackCount, 'track') }}
-			</p>
-			<AlbumFolders :folders="data.folders" class="mt-1" />
 		</div>
 		<AlbumTracks :tracks="data.tracks" :caption="`Tracks of ${albumTitle(data.title)}`" />
 	</section>
