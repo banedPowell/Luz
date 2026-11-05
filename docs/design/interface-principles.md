@@ -10,7 +10,7 @@ Spotify and Tidal are references for composition only: sidebar, tabs, covers, se
 
 ## Principles
 
-1. **Files are visible.** Format, bitrate and path are one click or hover away. An album page shows its folder and each track's file name. Nothing hides that these are real files.
+1. **Files are visible.** Format, bitrate, file name and path are one click away, behind a track's info button ("i"), and the row menu copies the path. An album page shows its folders. Nothing hides that these are real files.
 2. **The library is easy to get around.** Search is always reachable. Every list can be sorted; sort, page and view mode live in the URL.
 3. **No placeholder controls.** A button exists only when it works. Room for future features (accounts, device profiles) is reserved in the layout, never drawn.
 4. **Same pattern everywhere.** A list is a list: tables and grids share the selection bar, the row menu and the empty state. A feature added later plugs into these places.
@@ -25,13 +25,14 @@ Spotify and Tidal are references for composition only: sidebar, tabs, covers, se
 - The bottom of the sidebar is where an account menu will go. Nothing is drawn until accounts exist.
 - Device profiles will be a sidebar page and an "Export to…" action in selection and row menus, added when the feature exists.
 - Library page: tabs Tracks, Albums, Artists; a table/grid switch; a search field. Detail pages for an album and an artist.
-- Selection bar: appears above any list when rows are checked. Row menu ("…") on every row. Both carry only actions that exist.
+- Selection bar: appears above any list when rows are checked. Info button ("i", the track details) and row menu ("…") on every row. Both carry only actions that exist.
+- Track tables: `#`, title with the artist under it (capped width, the full text on hover), album, duration, date added; release and technical details sit behind the info button. Columns without a header to click (artist, year) stay sortable from the sort selector, grouped with its order button.
 - Home: library folder and last scan, library health (missing covers, missing artist, probable duplicates, missing files; each opens a filtered list), recently added.
 - Downloads: URL field, preview of what will be downloaded with the final path of each file, then the queue.
 
 ## Mobile
 
-Under the `md` breakpoint the sidebar becomes a drawer opened from the top bar. Tables become compact rows (cover, title, artist, format). The download status stays visible at the bottom. Touch targets are at least 40 px.
+Under the `md` breakpoint the sidebar becomes a drawer opened from the top bar. Tables become compact rows (cover, title with its artist under it). The download status stays visible at the bottom. Touch targets are at least 40 px.
 
 ## Visual identity
 

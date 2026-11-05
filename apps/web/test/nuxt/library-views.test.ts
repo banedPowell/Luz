@@ -34,6 +34,7 @@ function track(id: number, overrides: Partial<TrackSummary> = {}): TrackSummary 
 		durationMs: 61_000,
 		codec: 'FLAC',
 		bitrate: 900_000,
+		addedAtMs: Date.UTC(2026, 0, 15, 12),
 		album: alphaOne,
 		artist: alpha,
 		...overrides,
@@ -120,7 +121,7 @@ async function chooseFromMenu(
 }
 
 async function openDetails(wrapper: Awaited<ReturnType<typeof mountAt>>, title: string) {
-	await chooseFromMenu(wrapper, title, 'Show details');
+	await wrapper.find(`button[aria-label="Show details of ${title}"]`).trigger('click');
 	await nextTick();
 	return vi.waitFor(() => {
 		const dialog = document.querySelector('[role="dialog"]');
@@ -206,14 +207,51 @@ describe('library views', () => {
 	});
 
 	it('sorts by a column from its header, reversing the column already sorted', async () => {
-		const wrapper = await mountAt('/library?sort=year&order=asc&page=2');
+		const wrapper = await mountAt('/library?sort=added&order=asc&page=2');
 
 		const header = (name: string) => wrapper.findAll('th').find((cell) => cell.text() === name);
-		expect(header('Year')?.attributes('aria-sort')).toBe('ascending');
+		expect(header('Date added')?.attributes('aria-sort')).toBe('ascending');
 		expect(header('Title')?.attributes('aria-sort')).toBe('none');
 		// Both links go back to the first page
-		expect(header('Year')?.find('a').attributes('href')).toBe('/library?sort=year&order=desc');
+		expect(header('Date added')?.find('a').attributes('href')).toBe(
+			'/library?sort=added&order=desc',
+		);
 		expect(header('Album')?.find('a').attributes('href')).toBe('/library?sort=album&order=asc');
+	});
+
+	it('shows the tracks with their artist under the title, then album, duration and date added', async () => {
+		const wrapper = await mountAt('/library?page=2');
+
+		expect(wrapper.findAll('thead th').map((cell) => cell.text())).toEqual([
+			'#',
+			'Title',
+			'Album',
+			'Duration',
+			'Date added',
+			'Actions',
+		]);
+		const cells = wrapper.findAll('tbody tr')[0]?.findAll('td') ?? [];
+		// Numbered across pages
+		expect(cells[0]?.text()).toBe('51');
+		const title = cells[1]?.findAll('span[title]') ?? [];
+		expect(title.map((line) => [line.text(), line.attributes('title')])).toEqual([
+			['Track 1', 'Track 1'],
+			['Alpha', 'Alpha'],
+		]);
+		expect(cells[4]?.text()).toBe(
+			new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+				Date.UTC(2026, 0, 15, 12),
+			),
+		);
+	});
+
+	it('groups the sort selector with its order button, still sorting by artist', async () => {
+		const wrapper = await mountAt('/library?sort=artist&order=desc');
+
+		const group = wrapper.find('[role="group"][aria-label="Sort"]');
+		expect(group.find('[aria-label="Sort by"]').text()).toContain('Artist');
+		expect(group.find('a[aria-label^="Sort order: descending"]').text()).toBe('Descending');
+		expect(queries.at(-1)).toMatchObject({ sort: 'artist', order: 'desc' });
 	});
 
 	it('marks a descending column, and leaves unsortable columns plain', async () => {
@@ -364,24 +402,28 @@ describe('library views', () => {
 		writeText.mockRestore();
 	});
 
-	it('shows the file name, format and bitrate of each track of an album', async () => {
+	it('keeps the technical details of an album track behind its info button', async () => {
 		album.tracks = [
 			track(1),
-			track(2, { title: null, fileName: 'untitled.mp3', codec: 'MP3', bitrate: 245_600 }),
-			track(3, { codec: null, bitrate: null }),
+			track(2, { title: null, fileName: 'untitled.mp3', addedAtMs: null }),
 		];
 		const wrapper = await mountAt('/library/albums/10');
 
-		const header = wrapper.findAll('thead th').map((cell) => cell.text());
-		expect(header).toEqual(expect.arrayContaining(['Format', 'Bitrate']));
-		const rows = wrapper.findAll('tbody tr').map((row) => row.text());
-		expect(rows[0]).toContain('1.flac');
-		expect(rows[0]).toContain('FLAC');
-		expect(rows[0]).toContain('900 kbps');
-		// An untitled track already shows its file name as its title, once
-		expect(rows[1]?.split('untitled.mp3')).toHaveLength(2);
-		expect(rows[1]).toContain('246 kbps');
-		expect(rows[2]).not.toContain('kbps');
+		expect(wrapper.findAll('thead th').map((cell) => cell.text())).toEqual([
+			'#',
+			'Title',
+			'Duration',
+			'Date added',
+			'Actions',
+		]);
+		const rows = wrapper.findAll('tbody tr');
+		expect(rows[0]?.text()).toContain('Alpha');
+		expect(rows[0]?.text()).not.toContain('FLAC');
+		expect(rows[0]?.text()).not.toContain('1.flac');
+		// An untitled track shows its file name as its title; an old one has no date added
+		expect(rows[1]?.findAll('td')[1]?.text()).toContain('untitled.mp3');
+		expect(rows[1]?.findAll('td')[3]?.text()).toBe('');
+		expect(rows[0]?.find('button[aria-label="Show details of Track 1"]').exists()).toBe(true);
 	});
 
 	it('shows an artist with each album and its tracks', async () => {
@@ -415,6 +457,7 @@ describe('library views', () => {
 		expect(text).toContain('Stereo');
 		expect(text).toContain('/music/Alpha/Alpha One/01 Track 1.mp3');
 		expect(text).toContain('4.2 MB');
+		expect(text).toContain('Added');
 		// A lossy file has no bit depth, and an untagged genre says so
 		expect(text).not.toContain('Bit depth');
 		expect(text).toMatch(/Genre\s*Not tagged/);
@@ -450,17 +493,7 @@ describe('library views', () => {
 	it('does not show the message of a failure', async () => {
 		detailFailure = 'Internal detail of the server';
 		const wrapper = await mountAt('/library');
-		await wrapper.find('button[aria-label="More actions for Track 1"]').trigger('click');
-
-		await vi.waitFor(() => {
-			const item = [...document.querySelectorAll('[role="menuitem"]')].find(
-				(element) => element.textContent?.trim() === 'Show details',
-			);
-			if (!(item instanceof HTMLElement)) {
-				throw new Error('The menu is not open');
-			}
-			item.click();
-		});
+		await wrapper.find('button[aria-label="Show details of Track 1"]').trigger('click');
 
 		await vi.waitFor(() => {
 			expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
@@ -475,17 +508,7 @@ describe('library views', () => {
 	it('says when a track is no longer in the library', async () => {
 		detail = undefined;
 		const wrapper = await mountAt('/library');
-		await wrapper.find('button[aria-label="More actions for Track 1"]').trigger('click');
-
-		await vi.waitFor(() => {
-			const item = [...document.querySelectorAll('[role="menuitem"]')].find(
-				(element) => element.textContent?.trim() === 'Show details',
-			);
-			if (!(item instanceof HTMLElement)) {
-				throw new Error('The menu is not open');
-			}
-			item.click();
-		});
+		await wrapper.find('button[aria-label="Show details of Track 1"]').trigger('click');
 
 		await vi.waitFor(() => {
 			expect(document.querySelector('[role="dialog"]')?.textContent).toContain(

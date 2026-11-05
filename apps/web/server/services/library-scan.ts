@@ -34,21 +34,27 @@ let running = false;
  * the albums and artists they leave empty. Unchanged files are not read, unless their track
  * was indexed before its codec was stored. Files are only
  * read, never modified. A file whose tags cannot be read is skipped and counted (a changed
- * one leaves the index, its stored tags being stale); the scan goes on.
+ * one leaves the index, its stored tags being stale); the scan goes on. The tracks it adds
+ * are dated by `now` when the scan starts.
  */
-export async function scanLibrary(db: Database, tagReader: TagReader): Promise<ScanSummary> {
+export async function scanLibrary(
+	db: Database,
+	tagReader: TagReader,
+	now: () => number = Date.now,
+): Promise<ScanSummary> {
 	if (running) {
 		throw new ScanError('scan-running');
 	}
 	running = true;
 	try {
-		return await scan(db, tagReader);
+		return await scan(db, tagReader, now());
 	} finally {
 		running = false;
 	}
 }
 
-async function scan(db: Database, tagReader: TagReader): Promise<ScanSummary> {
+// The tracks a scan adds share its start time as their date added
+async function scan(db: Database, tagReader: TagReader, startedAtMs: number): Promise<ScanSummary> {
 	const { musicLibraryPath } = await readSettings(db);
 	if (musicLibraryPath === undefined) {
 		throw new ScanError('library-path-unset');
@@ -94,7 +100,7 @@ async function scan(db: Database, tagReader: TagReader): Promise<ScanSummary> {
 			await updateTrack(db, track);
 			summary.updated++;
 		} else {
-			await insertTrack(db, track);
+			await insertTrack(db, track, startedAtMs);
 			summary.added++;
 		}
 	}

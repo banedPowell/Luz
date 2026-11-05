@@ -20,6 +20,9 @@ import { albums, artists, tracks } from '../../server/infrastructure/database/sc
 import { audioOf } from './support/audio';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
+// When the scan met the files, distinct from their modification time
+const addedAtMs = 1_750_000_000_000;
+
 function trackFile(filePath: string, tags: Partial<TrackTags> = {}): TrackFile {
 	return {
 		path: filePath,
@@ -77,6 +80,7 @@ describe('library repository', () => {
 				genre: 'Rock',
 				durationMs: 259_000,
 			}),
+			addedAtMs,
 		);
 
 		expect(track).toEqual({
@@ -98,6 +102,7 @@ describe('library repository', () => {
 			channels: null,
 			fileSize: 1024,
 			modifiedAtMs: 1_700_000_000_000,
+			addedAtMs,
 			album: { id: expect.any(Number), title: 'Abbey Road' },
 			artist: { id: expect.any(Number), name: 'The Beatles' },
 		});
@@ -108,10 +113,12 @@ describe('library repository', () => {
 		const first = await insertTrack(
 			db,
 			trackFile('/m/1.mp3', { artists: ['A'], albumArtist: 'Band', album: 'Live' }),
+			addedAtMs,
 		);
 		const second = await insertTrack(
 			db,
 			trackFile('/m/2.mp3', { artists: ['B'], albumArtist: 'band', album: 'LIVE' }),
+			addedAtMs,
 		);
 
 		expect(second.album).toEqual(first.album);
@@ -123,18 +130,20 @@ describe('library repository', () => {
 		const first = await insertTrack(
 			db,
 			trackFile('/m/1.mp3', { artists: ['A'], album: 'Greatest Hits' }),
+			addedAtMs,
 		);
 		const second = await insertTrack(
 			db,
 			trackFile('/m/2.mp3', { artists: ['B'], album: 'Greatest Hits' }),
+			addedAtMs,
 		);
 
 		expect(second.album.id).not.toBe(first.album.id);
 	});
 
 	it('groups untagged tracks under the unknown artist and album', async () => {
-		const first = await insertTrack(db, trackFile('/m/1.ogg'));
-		const second = await insertTrack(db, trackFile('/m/2.ogg', { artists: [' '] }));
+		const first = await insertTrack(db, trackFile('/m/1.ogg'), addedAtMs);
+		const second = await insertTrack(db, trackFile('/m/2.ogg', { artists: [' '] }), addedAtMs);
 
 		expect(first.artist).toEqual({ id: expect.any(Number), name: null });
 		expect(first.album).toEqual({ id: expect.any(Number), title: null });
@@ -143,10 +152,10 @@ describe('library repository', () => {
 	});
 
 	it('rejects a second track with the same path', async () => {
-		await insertTrack(db, trackFile('/m/1.mp3', { album: 'One' }));
+		await insertTrack(db, trackFile('/m/1.mp3', { album: 'One' }), addedAtMs);
 
 		expect(
-			await errorMessage(insertTrack(db, trackFile('/m/1.mp3', { album: 'Two' }))),
+			await errorMessage(insertTrack(db, trackFile('/m/1.mp3', { album: 'Two' }), addedAtMs)),
 		).toMatch(/UNIQUE constraint failed: tracks\.path/);
 		// The rolled back insert leaves no album behind
 		expect(await groups()).toEqual({ artists: [null], albums: ['One'] });
@@ -160,6 +169,7 @@ describe('library repository', () => {
 		const inserted = await insertTrack(
 			db,
 			trackFile('/m/1.mp3', { title: 'Old', artists: ['A'] }),
+			addedAtMs,
 		);
 
 		const updated = await updateTrack(db, {
@@ -189,14 +199,15 @@ describe('library repository', () => {
 			channels: 2,
 			fileSize: 2048,
 			modifiedAtMs: 1_800_000_000_000,
+			addedAtMs,
 			album: inserted.album,
 			artist: inserted.artist,
 		});
 	});
 
 	it('drops the album and artist a track leaves on update', async () => {
-		await insertTrack(db, trackFile('/m/1.mp3', { artists: ['A'], album: 'Old' }));
-		await insertTrack(db, trackFile('/m/2.mp3', { artists: ['B'], album: 'Kept' }));
+		await insertTrack(db, trackFile('/m/1.mp3', { artists: ['A'], album: 'Old' }), addedAtMs);
+		await insertTrack(db, trackFile('/m/2.mp3', { artists: ['B'], album: 'Kept' }), addedAtMs);
 
 		const updated = await updateTrack(
 			db,
@@ -215,8 +226,8 @@ describe('library repository', () => {
 	});
 
 	it('deletes a track and the groups it leaves empty', async () => {
-		await insertTrack(db, trackFile('/m/1.mp3', { artists: ['A'], album: 'One' }));
-		await insertTrack(db, trackFile('/m/2.mp3', { artists: ['A'], album: 'Two' }));
+		await insertTrack(db, trackFile('/m/1.mp3', { artists: ['A'], album: 'One' }), addedAtMs);
+		await insertTrack(db, trackFile('/m/2.mp3', { artists: ['A'], album: 'Two' }), addedAtMs);
 
 		expect(await deleteTrack(db, '/m/1.mp3')).toBe(true);
 		expect(await groups()).toEqual({ artists: ['A'], albums: ['Two'] });
@@ -231,9 +242,9 @@ describe('library repository', () => {
 	});
 
 	it('deletes several tracks at once, then the groups they leave empty', async () => {
-		await insertTrack(db, trackFile('/m/1.mp3', { artists: ['A'], album: 'One' }));
-		await insertTrack(db, trackFile('/m/2.mp3', { artists: ['A'], album: 'One' }));
-		await insertTrack(db, trackFile('/m/3.mp3', { artists: ['B'], album: 'Two' }));
+		await insertTrack(db, trackFile('/m/1.mp3', { artists: ['A'], album: 'One' }), addedAtMs);
+		await insertTrack(db, trackFile('/m/2.mp3', { artists: ['A'], album: 'One' }), addedAtMs);
+		await insertTrack(db, trackFile('/m/3.mp3', { artists: ['B'], album: 'Two' }), addedAtMs);
 
 		expect(await deleteTracks(db, ['/m/1.mp3', '/m/3.mp3', '/m/missing.mp3'])).toBe(2);
 		expect(await groups()).toEqual({ artists: ['A'], albums: ['One'] });
@@ -241,7 +252,11 @@ describe('library repository', () => {
 	});
 
 	it('deletes more tracks than one statement can bind', async () => {
-		const { album } = await insertTrack(db, trackFile('/m/first.mp3', { album: 'Big' }));
+		const { album } = await insertTrack(
+			db,
+			trackFile('/m/first.mp3', { album: 'Big' }),
+			addedAtMs,
+		);
 		const paths = Array.from({ length: 1200 }, (_, index) => `/m/${index}.mp3`);
 		// One insert: a track at a time would take seconds
 		await db.insert(tracks).values(
@@ -259,8 +274,8 @@ describe('library repository', () => {
 	});
 
 	it('lists the indexed files with the size and time the rescan compares', async () => {
-		await insertTrack(db, trackFile('/m/1.mp3'));
-		await insertTrack(db, trackFile('/m/2.mp3'));
+		await insertTrack(db, trackFile('/m/1.mp3'), addedAtMs);
+		await insertTrack(db, trackFile('/m/2.mp3'), addedAtMs);
 		// A track indexed before codecs were stored
 		await db
 			.update(tracks)

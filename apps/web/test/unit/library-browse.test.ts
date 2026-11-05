@@ -8,10 +8,12 @@ import {
 	trackTagsSchema,
 	type TrackTags,
 } from '@luz/core';
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
 import { insertTrack } from '../../server/infrastructure/database/library-repository';
+import { tracks as trackRows } from '../../server/infrastructure/database/schema';
 import { ensureSettings } from '../../server/infrastructure/database/settings-repository';
 import { applyMigrations, loadMigrations } from '../../server/infrastructure/database/migrations';
 import {
@@ -46,14 +48,22 @@ describe('library browse', () => {
 		await removeWhenReleased(dataDir);
 	});
 
-	async function add(fileName: string, tags: Partial<TrackTags> = {}) {
-		return insertTrack(db, {
-			path: path.join(dataDir, 'music', fileName),
-			fileSize: 1024,
-			modifiedAtMs: 1_700_000_000_000,
-			tags: trackTagsSchema.parse(tags),
-			audio: audioOf(fileName),
-		});
+	async function add(
+		fileName: string,
+		tags: Partial<TrackTags> = {},
+		addedAtMs = 1_750_000_000_000,
+	) {
+		return insertTrack(
+			db,
+			{
+				path: path.join(dataDir, 'music', fileName),
+				fileSize: 1024,
+				modifiedAtMs: 1_700_000_000_000,
+				tags: trackTagsSchema.parse(tags),
+				audio: audioOf(fileName),
+			},
+			addedAtMs,
+		);
 	}
 
 	// Two artists, three albums, one untagged file; inserted out of order on purpose
@@ -203,6 +213,30 @@ describe('library browse', () => {
 		]);
 	});
 
+	it('sorts tracks by date added, ties by title, undated last in both directions', async () => {
+		await add('new.flac', { title: 'New' }, 3000);
+		await add('same-b.flac', { title: 'Same B' }, 2000);
+		await add('old.flac', { title: 'Old' }, 1000);
+		await add('same-a.flac', { title: 'same A' }, 2000);
+		const { id } = await add('undated.flac', { title: 'Undated' });
+		await db.update(trackRows).set({ addedAtMs: null }).where(eq(trackRows.id, id));
+
+		expect(titles(await tracks({ sort: 'added' }))).toEqual([
+			'Old',
+			'same A',
+			'Same B',
+			'New',
+			'Undated',
+		]);
+		expect(titles(await tracks({ sort: 'added', order: 'desc' }))).toEqual([
+			'New',
+			'same A',
+			'Same B',
+			'Old',
+			'Undated',
+		]);
+	});
+
 	it('cuts pages without overlap and returns the total', async () => {
 		await addLibrary();
 
@@ -326,10 +360,14 @@ describe('library browse', () => {
 		expect((await getAlbum(db, album.album.id))?.folders[0]?.relativePath).toBeNull();
 	});
 
-	it('gives each track of a list its codec and bitrate', async () => {
-		await add('coded.mp3', { title: 'Coded' });
+	it('gives each track of a list its codec, bitrate and date added', async () => {
+		await add('coded.mp3', { title: 'Coded' }, 1234);
 
-		expect((await tracks({})).items[0]).toMatchObject({ codec: 'MP3', bitrate: null });
+		expect((await tracks({})).items[0]).toMatchObject({
+			codec: 'MP3',
+			bitrate: null,
+			addedAtMs: 1234,
+		});
 	});
 
 	it('returns an artist with its albums, oldest first, and their tracks', async () => {
@@ -376,6 +414,7 @@ describe('library browse', () => {
 			channels: null,
 			fileSize: 1024,
 			modifiedAtMs: 1_700_000_000_000,
+			addedAtMs: 1_750_000_000_000,
 			album,
 			artist,
 		});

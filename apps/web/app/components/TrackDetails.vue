@@ -85,6 +85,10 @@ const sections = computed<Section[]>(() => {
 				{ label: 'Path', value: detail.path, mono: true },
 				{ label: 'Size', value: formatFileSize(detail.fileSize) },
 				{ label: 'Modified', value: dateFormat.format(detail.modifiedAtMs) },
+				{
+					label: 'Added',
+					value: detail.addedAtMs === null ? null : dateFormat.format(detail.addedAtMs),
+				},
 			],
 		},
 	];

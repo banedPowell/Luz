@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { AlbumQuality } from './quality.ts';
 
-export const trackSortKeys = ['title', 'artist', 'album', 'year', 'duration'] as const;
+export const trackSortKeys = ['title', 'artist', 'album', 'year', 'duration', 'added'] as const;
 export const albumSortKeys = ['title', 'artist', 'year'] as const;
 export const artistSortKeys = ['name'] as const;
 export const sortOrders = ['asc', 'desc'] as const;
@@ -70,6 +70,8 @@ export interface TrackSummary {
 	// `null` until a scan reads the file again, for a track indexed before codecs were stored
 	codec: string | null;
 	bitrate: number | null;
+	// When the scan first indexed the file; `null` for a track indexed before it was stored
+	addedAtMs: number | null;
 	album: { id: number; title: string | null };
 	artist: { id: number; name: string | null };
 }

@@ -109,6 +109,7 @@ describe('library page', () => {
 				durationMs: 1000,
 				codec: 'FLAC',
 				bitrate: 900_000,
+				addedAtMs: null,
 				album: { id: 1, title: 'Alpha One' },
 				artist: { id: 1, name: 'Alpha' },
 			},

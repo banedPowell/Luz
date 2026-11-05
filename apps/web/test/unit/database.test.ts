@@ -14,7 +14,7 @@ import {
 	type Migration,
 	type MigrationReader,
 } from '../../server/infrastructure/database/migrations';
-import { settings } from '../../server/infrastructure/database/schema';
+import { settings, tracks } from '../../server/infrastructure/database/schema';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
 function readerOf(files: Record<string, string>): MigrationReader {
@@ -35,6 +35,7 @@ describe('loadMigrations', () => {
 			'0002_add_search_keys',
 			'0003_add_track_audio',
 			'0004_drop_settings_theme',
+			'0005_add_track_added_at',
 		]);
 		expect(migrations[0]?.statements[0]).toMatch(/^CREATE TABLE `settings`/);
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
@@ -139,6 +140,7 @@ describe('database', () => {
 			'0002_add_search_keys',
 			'0003_add_track_audio',
 			'0004_drop_settings_theme',
+			'0005_add_track_added_at',
 		]);
 		expect(await migrate()).toEqual([]);
 	});
@@ -215,10 +217,33 @@ describe('database', () => {
 
 		const applied = await applyMigrations(db.$client, migrations);
 
-		expect(applied.map((migration) => migration.tag)).toEqual(['0004_drop_settings_theme']);
+		expect(applied.map((migration) => migration.tag)).toEqual([
+			'0004_drop_settings_theme',
+			'0005_add_track_added_at',
+		]);
 		expect(await db.select().from(settings)).toEqual([{ id: 1, musicLibraryPath: '/music' }]);
 		expect(await failureOf('INSERT INTO settings (id) VALUES (2)')).toMatch(
 			/CHECK constraint failed: settings_single_row/,
 		);
+	});
+
+	// When a track indexed earlier was added is unknown: its file's modification time stands in
+	it('dates the tracks indexed before the date added existed by their file', async () => {
+		const migrations = await loadMigrations(readMigrationsFolder);
+		await applyMigrations(
+			db.$client,
+			migrations.filter((migration) => migration.tag < '0005_add_track_added_at'),
+		);
+		await db.$client.batch([
+			"INSERT INTO artists (id, key, name) VALUES (1, 'a', 'A')",
+			"INSERT INTO albums (id, artist_id, key, title) VALUES (1, 1, 'b', 'B')",
+			"INSERT INTO tracks (path, album_id, file_size, modified_at_ms) VALUES ('/m/1.mp3', 1, 10, 1700000000000)",
+		]);
+
+		await applyMigrations(db.$client, migrations);
+
+		expect(await db.select({ addedAtMs: tracks.addedAtMs }).from(tracks)).toEqual([
+			{ addedAtMs: 1_700_000_000_000 },
+		]);
 	});
 });

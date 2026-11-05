@@ -70,14 +70,22 @@ export interface LibraryTrack {
 	channels: number | null;
 	fileSize: number;
 	modifiedAtMs: number;
+	addedAtMs: number | null;
 	album: { id: number; title: string | null };
 	artist: { id: number; name: string | null };
 }
 
-/** Stores a new track, creating its album and artist if needed. Fails if the path exists. */
-export async function insertTrack(db: Database, file: TrackFile): Promise<LibraryTrack> {
+/**
+ * Stores a new track, creating its album and artist if needed. Fails if the path exists.
+ * `addedAtMs` is when the scan met the file; updates never change it.
+ */
+export async function insertTrack(
+	db: Database,
+	file: TrackFile,
+	addedAtMs: number,
+): Promise<LibraryTrack> {
 	await db.transaction(async (tx) => {
-		await tx.insert(tracks).values(await toTrackRow(tx, file));
+		await tx.insert(tracks).values({ ...(await toTrackRow(tx, file)), addedAtMs });
 	});
 	return requireTrack(db, file.path);
 }
@@ -361,6 +369,7 @@ function selectTracks(db: Database) {
 			durationMs: tracks.durationMs,
 			codec: tracks.codec,
 			bitrate: tracks.bitrate,
+			addedAtMs: tracks.addedAtMs,
 			album: { id: albums.id, title: albums.title },
 			artist: { id: artists.id, name: artists.name },
 		})
@@ -434,6 +443,7 @@ function trackOrder(sort: TrackSortKey, order: SortOrder): SQL[] {
 		album: [by(albums.title, order, true), asc(albums.id), ...inAlbumOrder],
 		year: [by(tracks.year, order), ...byAlbum],
 		duration: [by(tracks.durationMs, order)],
+		added: [by(tracks.addedAtMs, order), by(tracks.title, 'asc', true)],
 	};
 	return orders[sort];
 }
