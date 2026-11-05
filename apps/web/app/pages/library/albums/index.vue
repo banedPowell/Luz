@@ -7,6 +7,7 @@ const { query } = useListQuery(albumListQuerySchema);
 const { data } = await useFetch('/api/library/albums', { query });
 const { sorting, sortable } = useSortableHeaders<AlbumSummary>(query);
 const { view } = useListView();
+const selection = useListSelection(() => data.value?.items ?? []);
 
 const sortOptions = [
 	{ label: 'Title', value: 'title' },
@@ -15,6 +16,8 @@ const sortOptions = [
 ] as const;
 
 const columns: TableColumn<AlbumSummary>[] = [
+	// The checkboxes of the selection bar
+	{ id: 'select', meta: { class: { th: 'w-px pe-0', td: 'w-px pe-0' } } },
 	// max-w-0 lets the title and artist cells shrink to the room the other columns leave,
 	// truncated, instead of stretching the table past the screen; the widths share that room
 	{
@@ -66,6 +69,15 @@ const columns: TableColumn<AlbumSummary>[] = [
 		:sort-options="[...sortOptions]"
 		view-switch
 	>
+		<!-- The grid has no header row: its "select all" sits above it -->
+		<UCheckbox
+			v-if="view === 'grid'"
+			:model-value="selection.all.value"
+			label="Select all albums on this page"
+			:ui="{ root: 'min-h-10 items-center md:min-h-8', label: 'font-normal text-muted' }"
+			class="self-start"
+			@update:model-value="selection.toggleAll"
+		/>
 		<!-- The sort selector replaces the column headers here -->
 		<ul
 			v-if="view === 'grid'"
@@ -98,7 +110,12 @@ const columns: TableColumn<AlbumSummary>[] = [
 						{{ artistName(album.artist.name) }}
 					</ULink>
 				</div>
-				<div class="flex items-center justify-between gap-2">
+				<div class="flex items-center gap-3">
+					<SelectCheckbox
+						:model-value="selection.isSelected(album.id)"
+						:label="`Select ${albumTitle(album.title)}`"
+						@update:model-value="(value) => selection.toggle(album.id, value)"
+					/>
 					<AlbumQualityBadge :quality="album.quality" />
 					<AlbumMenu :album="album" class="-me-2 ms-auto" />
 				</div>
@@ -112,6 +129,20 @@ const columns: TableColumn<AlbumSummary>[] = [
 			:sorting-options="{ manualSorting: true }"
 			caption="Albums"
 		>
+			<template #select-header>
+				<SelectCheckbox
+					:model-value="selection.all.value"
+					label="Select all albums on this page"
+					@update:model-value="selection.toggleAll"
+				/>
+			</template>
+			<template #select-cell="{ row }">
+				<SelectCheckbox
+					:model-value="selection.isSelected(row.original.id)"
+					:label="`Select ${albumTitle(row.original.title)}`"
+					@update:model-value="(value) => selection.toggle(row.original.id, value)"
+				/>
+			</template>
 			<template #title-cell="{ row }">
 				<div class="flex items-center gap-3">
 					<AlbumCover
@@ -154,5 +185,6 @@ const columns: TableColumn<AlbumSummary>[] = [
 			<template #tracks-cell="{ row }">{{ row.original.trackCount }}</template>
 			<template #actions-cell="{ row }"><AlbumMenu :album="row.original" /></template>
 		</UTable>
+		<LibrarySelectionBar :selection="selection" kind="albums" />
 	</LibraryList>
 </template>

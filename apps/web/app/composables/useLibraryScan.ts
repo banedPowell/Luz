@@ -41,7 +41,7 @@ function requestScan(body?: ScanRequest) {
  * which leaves the page as it was; a refused one stays on the page, where it can link to
  * the settings.
  *
- * `rescan` scans the albums or tracks of a row menu only. It always reads their files
+ * `rescan` scans the albums or tracks of a row menu or a selection only. It always reads their files
  * again: the user asked for it, and a scope holds few files. Its outcome, refusal
  * included, is a toast, since the row it came from has no room to explain.
  */
@@ -76,7 +76,8 @@ export function useLibraryScan() {
 		await finished('Scan complete', summary);
 	}
 
-	async function rescan(scope: ScanScope) {
+	// Whether the scan ran, so the selection bar knows to clear the selection
+	async function rescan(scope: ScanScope): Promise<boolean> {
 		let summary: ScanSummary;
 		try {
 			summary = await requestScan({ scope, force: true });
@@ -87,9 +88,10 @@ export function useLibraryScan() {
 				color: 'error',
 				icon: appConfig.ui.icons.error,
 			});
-			return;
+			return false;
 		}
 		await finished('Rescan complete', summary);
+		return true;
 	}
 
 	return {

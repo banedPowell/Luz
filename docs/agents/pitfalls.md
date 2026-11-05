@@ -58,6 +58,8 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 - **`UTable` only sorts a column that has an accessor**: with an `id` alone, `enableSorting` does nothing and the header gets no `aria-sort`. Server-sorted lists give it `accessorFn: () => null` and `manualSorting` (`useSortableHeaders`).
 - **`resolveComponent()` outside a template** (in a column `header` render function) finds no Nuxt component, which are not registered globally: it renders an empty unknown element. Import from `#components` instead.
 
+- **`sticky` does nothing inside the app shell**: the window scrolls, not `main`, and the shell's wrapper is `overflow-hidden`, which captures sticky elements. Something that must stay on screen (the selection bar) is `fixed`, with room kept at the end of the list.
+
 ## Agent environment (Windows)
 
 - **Run servers as background tasks** (`vp run dev`, or `node .output/server/index.mjs` with `NUXT_DATA_DIR` on a temporary folder and `PORT`) and stop the task; killing processes by port is refused. Never point a test server at `apps/web/.luz` or `%APPDATA%\Luz`.

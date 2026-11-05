@@ -7,6 +7,9 @@ const { data, error } = await useFetch(`/api/library/artists/${String(route.para
 if (error.value) {
 	throw createError({ statusCode: error.value.statusCode ?? 500, fatal: true });
 }
+// One selection for all the albums of the page, so a single bar acts on them
+const selection = useListSelection(() => data.value?.albums.flatMap((album) => album.tracks) ?? []);
+
 // A rescan of its albums or tracks can leave the artist with none, which removes it
 watch(error, async (refreshError) => {
 	if (refreshError?.statusCode === 404) {
@@ -42,7 +45,12 @@ watch(error, async (refreshError) => {
 				<AlbumQualityBadge :quality="album.quality" />
 				<AlbumMenu :album="album" />
 			</div>
-			<AlbumTracks :tracks="album.tracks" :caption="`Tracks of ${albumTitle(album.title)}`" />
+			<AlbumTracks
+				:tracks="album.tracks"
+				:caption="`Tracks of ${albumTitle(album.title)}`"
+				:selection="selection"
+			/>
 		</section>
+		<LibrarySelectionBar :selection="selection" kind="tracks" />
 	</section>
 </template>

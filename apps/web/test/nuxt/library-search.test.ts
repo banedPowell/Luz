@@ -192,4 +192,18 @@ describe('library search', () => {
 			expect(searchField(wrapper).element).toHaveProperty('value', '');
 		});
 	});
+	it('selects the tracks found, from each row or all at once', async () => {
+		const wrapper = await mountAt('/library/search?q=deja');
+		const bar = () => wrapper.find('section[aria-label="Selection"]');
+
+		await wrapper
+			.find('button[role="checkbox"][aria-label="Select Déjà Vu 1"]')
+			.trigger('click');
+		expect(bar().text()).toContain('1 track selected');
+
+		await wrapper
+			.find('button[role="checkbox"][aria-label="Select all tracks found"]')
+			.trigger('click');
+		expect(bar().text()).toContain('2 tracks selected');
+	});
 });
