@@ -48,7 +48,10 @@ export type DownloadFailureReason =
 	| 'failed'
 	| 'unsupported-source'
 	| 'ffmpeg-unavailable'
-	| 'conversion';
+	| 'conversion'
+	| 'library-unavailable'
+	| 'name-taken'
+	| 'move';
 
 /** What the user reads for each failure; the tool output stays in the item log. */
 export const downloadFailureMessages: Record<DownloadFailureReason, string> = {
@@ -62,6 +65,11 @@ export const downloadFailureMessages: Record<DownloadFailureReason, string> = {
 		'Luz cannot keep the audio of this track as is. Download it as MP3 instead.',
 	'ffmpeg-unavailable': 'FFmpeg is not available. See the Tools section of Settings.',
 	conversion: 'FFmpeg could not convert this track.',
+	'library-unavailable':
+		'No music library folder is set, or it does not exist. Choose one in Settings, then download again.',
+	'name-taken':
+		'A file with this name is already in your library, and Luz never replaces one. Its path is in the details.',
+	move: 'Luz could not move this track into your library. See the details.',
 };
 
 /** The failure of a download, from the reason yt-dlp's error lines give (see classifyYtDlpError). */

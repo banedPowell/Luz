@@ -3,13 +3,19 @@ import path from 'node:path';
 import type { ToolStatus } from '@luz/core';
 
 import { createFfmpeg } from '../infrastructure/ffmpeg';
-import { createDirectory, listFileNames, removeDirectory } from '../infrastructure/file-system';
+import {
+	createDirectory,
+	listFileNames,
+	moveIntoLibrary,
+	removeDirectory,
+} from '../infrastructure/file-system';
 import { createProcessRunner } from '../infrastructure/process-runner';
 import { createTagReader } from '../infrastructure/tag-reader';
 import { createYtDlp } from '../infrastructure/yt-dlp';
 import type { AnalysisDependencies } from '../services/download-analysis';
 import { createDownloadEvents } from '../services/download-events';
 import { createDownloadQueue, type DownloadQueue } from '../services/downloads';
+import { indexLibraryFiles } from '../services/library-scan';
 import { getSettings } from '../services/settings';
 import { useLuzConfig } from './config';
 import { useDatabase } from './database';
@@ -29,15 +35,18 @@ export function useDownloadQueue(): Promise<DownloadQueue> {
 	queue ??= useDatabase().then((db) => {
 		const { dataDir, ytDlpPath, ffmpegPath } = useLuzConfig();
 		const runner = createProcessRunner();
+		const tagReader = createTagReader();
 		return createDownloadQueue({
 			db,
 			ytDlp: createYtDlp(runner, ytDlpPath),
 			ffmpeg: createFfmpeg(runner, ffmpegPath),
-			tagReader: createTagReader(),
+			tagReader,
 			downloadsDirectory: path.join(dataDir, 'downloads'),
 			listFileNames,
 			createDirectory,
 			removeDirectory,
+			moveIntoLibrary,
+			indexLibraryFiles: (paths) => indexLibraryFiles(db, tagReader, paths),
 			events,
 			logger,
 		});

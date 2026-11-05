@@ -16,6 +16,7 @@ import {
 	type DownloadItem,
 	type DownloadJob,
 	type DownloadStep,
+	type ScanSummary,
 } from '@luz/core';
 
 import type { Database } from '../infrastructure/database/client';
@@ -32,7 +33,9 @@ import {
 	startDownloadJob,
 	updateDownloadItemProgress,
 } from '../infrastructure/database/download-repository';
+import { readSettings } from '../infrastructure/database/settings-repository';
 import type { Ffmpeg } from '../infrastructure/ffmpeg';
+import { isDirectory, type MoveOutcome } from '../infrastructure/file-system';
 import type { TagReader } from '../infrastructure/tag-reader';
 import type { YtDlp } from '../infrastructure/yt-dlp';
 import { analyzeUrl, type AnalysisDependencies } from './download-analysis';
@@ -100,6 +103,10 @@ export interface DownloadQueueDependencies {
 	listFileNames: (directory: string) => Promise<string[]>;
 	createDirectory: (directory: string) => Promise<void>;
 	removeDirectory: (directory: string) => Promise<void>;
+	/** Moves a finished file into the library, never over an existing one. */
+	moveIntoLibrary: (source: string, target: string) => Promise<MoveOutcome>;
+	/** Indexes files of the library, once a running scan has ended. */
+	indexLibraryFiles: (paths: string[]) => Promise<ScanSummary>;
 	/** Where job and item updates go, for the stream of events. */
 	events: { emit: (event: DownloadEvent) => void };
 	logger: { info: (message: string) => void; error: (message: string, error?: unknown) => void };
@@ -119,6 +126,10 @@ export interface DownloadQueue {
 	stop(): void;
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 /** One job at a time, items one by one, in creation order (ADR 0007). */
 export function createDownloadQueue(dependencies: DownloadQueueDependencies): DownloadQueue {
 	const {
@@ -130,6 +141,8 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 		listFileNames,
 		createDirectory,
 		removeDirectory,
+		moveIntoLibrary,
+		indexLibraryFiles,
 		events,
 		logger,
 	} = dependencies;
@@ -222,6 +235,8 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 			logger.info(`Download job ${job.id} cancelled`);
 			return;
 		}
+		// Every finished file has reached the library: what is left is the job's own work
+		await removeDirectory(directory);
 		const items = (await findDownloadJob(db, job.id))?.items ?? [];
 		const state = finishedJobState(items.map((item) => item.state));
 		await finishDownloadJob(db, job.id, state, now());
@@ -275,10 +290,68 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 			}
 			return;
 		}
-		const outcome = await convert(job, item, directory, signal, onLine);
-		if (outcome !== 'aborted') {
-			await end(outcome);
+		const converted = await convert(job, item, directory, signal, onLine);
+		if (converted === 'aborted') {
+			return;
 		}
+		if (typeof converted === 'string') {
+			await end(converted);
+			return;
+		}
+		// Cancelled once converted: the file goes away with the job folder, never into the library
+		if (signal.aborted) {
+			return;
+		}
+		await end(await addToLibrary(item, converted.file, onLine));
+	}
+
+	/**
+	 * Moves a converted file to its path in the library, from the naming template, then
+	 * indexes it. A file already at that path fails the item and stays as it is.
+	 */
+	async function addToLibrary(
+		item: DownloadItem,
+		file: string,
+		onLine: (line: string) => void,
+	): Promise<'completed' | DownloadFailureReason> {
+		const { musicLibraryPath } = await readSettings(db);
+		if (musicLibraryPath === undefined || !(await isDirectory(musicLibraryPath))) {
+			onLine(
+				`The music library folder is not set or not found: ${musicLibraryPath ?? 'unset'}.`,
+			);
+			return 'library-unavailable';
+		}
+		const library = path.resolve(musicLibraryPath);
+		const target =
+			path.join(library, ...item.pathWithoutExtension.split('/')) + path.extname(file);
+		const relative = path.relative(library, target);
+		// The naming template keeps every file inside the library; a stored path is checked anyway
+		if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+			onLine(`The path ${target} is outside the music library.`);
+			return 'move';
+		}
+		let moved: MoveOutcome;
+		try {
+			moved = await moveIntoLibrary(file, target);
+		} catch (error) {
+			onLine(`Could not move the file to ${target}: ${errorMessage(error)}`);
+			return 'move';
+		}
+		if (moved === 'exists') {
+			onLine(`A file already exists at ${target}. Luz left it as it is.`);
+			return 'name-taken';
+		}
+		try {
+			const indexed = await indexLibraryFiles([target]);
+			if (indexed.added + indexed.updated + indexed.unchanged === 0) {
+				onLine(`${target} is in the library, but its tags could not be read to index it.`);
+			}
+		} catch (error) {
+			// The file is where it belongs: the next library scan indexes it
+			onLine(`${target} is in the library, but could not be indexed: ${errorMessage(error)}`);
+		}
+		await setDownloadItemStep(db, item.id, 'added');
+		return 'completed';
 	}
 
 	/**
@@ -291,7 +364,7 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 		directory: string,
 		signal: AbortSignal,
 		onLine: (line: string) => void,
-	): Promise<'completed' | 'aborted' | DownloadFailureReason> {
+	): Promise<{ file: string } | 'aborted' | DownloadFailureReason> {
 		const stem = String(item.id);
 		const files = downloadedFiles(await listFileNames(directory), stem);
 		if (files.audio === undefined) {
@@ -327,13 +400,14 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 		}
 
 		const converting = progressReporter(job.id, item.id, 'converting', signal);
+		const output = path.join(directory, `${stem}.converted${target.extension}`);
 		const result = await ffmpeg.convert(
 			{
 				audio,
 				tags: item.tags,
 				...(cover === undefined ? {} : { cover }),
 				metadataFile: path.join(directory, `${stem}.tags.ffmetadata`),
-				output: path.join(directory, `${stem}.converted${target.extension}`),
+				output,
 				target,
 				...(item.tags.durationMs === undefined ? {} : { durationMs: item.tags.durationMs }),
 			},
@@ -341,7 +415,7 @@ export function createDownloadQueue(dependencies: DownloadQueueDependencies): Do
 		);
 		await converting.settled();
 		if (result.ok) {
-			return 'completed';
+			return { file: output };
 		}
 		if (result.reason === 'aborted') {
 			return 'aborted';

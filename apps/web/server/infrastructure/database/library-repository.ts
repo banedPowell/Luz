@@ -183,7 +183,9 @@ export async function listIndexedFiles(
 				? inArray(tracks.albumId, scope.ids)
 				: scope.kind === 'tracks'
 					? inArray(tracks.id, scope.ids)
-					: undefined,
+					: scope.kind === 'files'
+						? inArray(tracks.path, scope.paths)
+						: undefined,
 		);
 	return rows.map(({ lossless, ...file }) => ({ ...file, audioKnown: lossless !== null }));
 }

@@ -16,7 +16,13 @@ import {
 	type IndexedFile,
 } from '../infrastructure/database/library-repository';
 import { readSettings } from '../infrastructure/database/settings-repository';
-import { isDirectory, statFile, walkFiles, type FileEntry } from '../infrastructure/file-system';
+import {
+	isDirectory,
+	statFile,
+	statFileInside,
+	walkFiles,
+	type FileEntry,
+} from '../infrastructure/file-system';
 import type { TagReader } from '../infrastructure/tag-reader';
 
 export class ScanError extends Error {
@@ -33,7 +39,26 @@ const scanErrorMessages: Record<ScanErrorReason, string> = {
 };
 
 // One scan per server: two would compare against and write the same tables at once
-let running = false;
+let running: Promise<unknown> | undefined;
+
+/** Runs a scan once no other one is running: refused, or after waiting for it. */
+async function exclusive<T>(run: () => Promise<T>, wait: boolean): Promise<T> {
+	// Another caller may have started a scan by the time a wait ends: check again
+	for (let busy = running; busy; busy = running) {
+		if (!wait) {
+			throw new ScanError('scan-running');
+		}
+		await busy.catch(() => undefined);
+	}
+	// Set before anything awaits, so a second caller sees it
+	const current = run();
+	running = current;
+	try {
+		return await current;
+	} finally {
+		running = undefined;
+	}
+}
 
 /**
  * Brings the index up to date with the music library folder of the settings: new files
@@ -45,8 +70,12 @@ let running = false;
  * leaves the index, its stored tags being stale); the scan goes on. The tracks it adds
  * are dated by `now` when the scan starts.
  *
- * A scope other than the library looks only at the tracks already indexed in it: their
- * files are compared one by one, the folder is never listed, so nothing is added.
+ * An album or track scope looks only at the tracks already indexed in it: their files are
+ * compared one by one, the folder is never listed, so nothing is added. A files scope reads
+ * the files it names, adding or updating them, and never removes a track: a path outside the
+ * library, missing, reached through a link or not audio is skipped and counted.
+ *
+ * A scan already running refuses this one.
  */
 export async function scanLibrary(
 	db: Database,
@@ -54,16 +83,33 @@ export async function scanLibrary(
 	options: Partial<ScanOptions> = {},
 	now: () => number = Date.now,
 ): Promise<ScanSummary> {
-	if (running) {
-		throw new ScanError('scan-running');
-	}
-	running = true;
-	try {
-		const scope = options.scope ?? { kind: 'library' };
-		return await scan(db, tagReader, scope, options.force ?? false, now());
-	} finally {
-		running = false;
-	}
+	return exclusive(
+		() =>
+			scan(
+				db,
+				tagReader,
+				options.scope ?? { kind: 'library' },
+				options.force ?? false,
+				now(),
+			),
+		false,
+	);
+}
+
+/**
+ * Indexes files just written to the library, as a files scan does, once the scan running,
+ * if any, has ended: a download waits for it rather than being refused.
+ */
+export async function indexLibraryFiles(
+	db: Database,
+	tagReader: TagReader,
+	paths: readonly string[],
+	now: () => number = Date.now,
+): Promise<ScanSummary> {
+	return exclusive(
+		() => scan(db, tagReader, { kind: 'files', paths: [...paths] }, false, now()),
+		true,
+	);
 }
 
 async function scan(
@@ -81,8 +127,11 @@ async function scan(
 		throw new ScanError('library-path-missing');
 	}
 
+	if (scope.kind === 'files') {
+		return scanFiles(db, tagReader, musicLibraryPath, scope.paths, force, startedAtMs);
+	}
 	const indexed = new Map((await listIndexedFiles(db, scope)).map((file) => [file.path, file]));
-	const pass = new ScanPass(db, tagReader, force, startedAtMs);
+	const pass = new ScanPass(db, tagReader, force, startedAtMs, true);
 	if (scope.kind === 'library') {
 		for await (const file of walkFiles(musicLibraryPath)) {
 			if (isAudioFile(file.path)) {
@@ -105,6 +154,37 @@ async function scan(
 	// What the scan did not meet is gone. Removed last, so that a file moved to another folder
 	// with the same tags keeps its album and artist rows, and their ids, in between
 	return pass.finish([...indexed.keys()]);
+}
+
+async function scanFiles(
+	db: Database,
+	tagReader: TagReader,
+	musicLibraryPath: string,
+	paths: readonly string[],
+	force: boolean,
+	startedAtMs: number,
+): Promise<ScanSummary> {
+	const library = path.resolve(musicLibraryPath);
+	// Stored as the walk writes them: absolute, resolved from the library folder
+	const resolved = [...new Set(paths.map((filePath) => path.resolve(library, filePath)))];
+	const indexed = new Map(
+		(await listIndexedFiles(db, { kind: 'files', paths: resolved })).map((file) => [
+			file.path,
+			file,
+		]),
+	);
+	const pass = new ScanPass(db, tagReader, force, startedAtMs, false);
+	for (const filePath of resolved) {
+		const file = isInLibrary(library, filePath)
+			? await statFileInside(library, filePath)
+			: undefined;
+		if (file) {
+			await pass.compare(file, indexed.get(filePath));
+		} else {
+			pass.skip();
+		}
+	}
+	return pass.finish([]);
 }
 
 // The walk only meets audio files inside the library folder, out of hidden entries
@@ -135,7 +215,13 @@ class ScanPass {
 		private readonly tagReader: TagReader,
 		private readonly force: boolean,
 		private readonly startedAtMs: number,
+		// Only a scan that meets every file of its scope may drop a track
+		private readonly removes: boolean,
 	) {}
+
+	skip(): void {
+		this.summary.skipped++;
+	}
 
 	async compare(file: FileEntry, known: IndexedFile | undefined): Promise<void> {
 		const changed =
@@ -149,7 +235,7 @@ class ScanPass {
 		if (!result.ok) {
 			this.summary.skipped++;
 			// An unchanged file keeps the tags it had; only its codec stays unknown
-			if (known && changed) {
+			if (known && changed && this.removes) {
 				this.unreadable.push(file.path);
 			}
 			return;
