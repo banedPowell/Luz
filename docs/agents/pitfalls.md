@@ -47,6 +47,10 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 - **libSQL's native binary is missing from `.output`** without `nitro.externals.traceInclude` (computed `require`). Only the build platform's binary is installed: build where the server runs.
 - **`NUXT_*` variables go through destr**: `NUXT_DATA_DIR=123` arrives as a number, and the Zod schema rejects it at startup. The `.env` file is read by the Nuxt CLI only, never by `node .output/server/index.mjs`.
 - **Unknown routes go through the router** (`experimental.early404` off): plugins run twice on a 404 (#23): a plugin with a side effect, such as setting a cookie, repeats it.
+- **Albums and artists come from tags, not folders**: a track goes to its album artist, else its first track artist, and untagged values to an "unknown" entry. An album has no folder of its own (`AlbumDetail.folders` lists its tracks' folders), and renaming it in the tags gives it a new id: a page holding the old id must cope with a 404.
+- **The codec decides losslessness, never the extension**: ALAC and AAC both use `.m4a` (`codecName()` in core). A track with `lossless` null was indexed before the column existed and is read again by the next scan, even if unchanged.
+- **A scoped scan (album or track ids) adds nothing**: it only compares the tracks already indexed in its scope, file by file (`statFile`), and removes those whose file is gone or left the library folder. New files appear through a library scan only.
+- **Every searchable name needs its `search_*` column**, holding `searchKey()` from core, written with the name and backfilled at startup; search matches it with `LIKE`, so a name written without it is never found.
 - **`curl` on an error route returns JSON** unless it sends `Accept: text/html`.
 - **Never display an error's `statusText` or `message`**: a 404's `statusText` contains the path, and other messages can come from the server.
 
@@ -57,7 +61,7 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 - **Before hydration, clicks and typing are lost** in a browser check (the sidebar footer "Theme: …" only appears once hydrated). Nuxt UI menus close between coordinate-based actions: target elements by reference or keyboard.
 - **`UTable` only sorts a column that has an accessor**: with an `id` alone, `enableSorting` does nothing and the header gets no `aria-sort`. Server-sorted lists give it `accessorFn: () => null` and `manualSorting` (`useSortableHeaders`).
 - **`resolveComponent()` outside a template** (in a column `header` render function) finds no Nuxt component, which are not registered globally: it renders an empty unknown element. Import from `#components` instead.
-
+- **The theme is not a setting** ([ADR 0006](../decisions/0006-theme-in-a-cookie.md)): it lives in the `luz-color-mode` cookie, changed with no request. In the built-in browser, that cookie forces the theme; change it to check the other one, then restore it.
 - **`sticky` does nothing inside the app shell**: the window scrolls, not `main`, and the shell's wrapper is `overflow-hidden`, which captures sticky elements. Something that must stay on screen (the selection bar) is `fixed`, with room kept at the end of the list.
 
 ## Agent environment (Windows)
