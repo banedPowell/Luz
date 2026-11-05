@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { lstat, opendir, stat } from 'node:fs/promises';
+import { lstat, mkdir, opendir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -111,4 +111,17 @@ export async function listFileNames(directory: string): Promise<string[]> {
 	} catch {
 		return [];
 	}
+}
+
+/** Creates a folder of the data directory and its parents, if needed. */
+export async function createDirectory(directory: string): Promise<void> {
+	await mkdir(directory, { recursive: true });
+}
+
+/**
+ * Removes a folder of the data directory with its content, and does nothing when there is
+ * none. Never called on the music library: only on a download job's own folder.
+ */
+export async function removeDirectory(directory: string): Promise<void> {
+	await rm(directory, { recursive: true, force: true, maxRetries: 3 });
 }

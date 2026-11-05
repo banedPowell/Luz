@@ -37,6 +37,7 @@ describe('loadMigrations', () => {
 			'0004_drop_settings_theme',
 			'0005_add_track_added_at',
 			'0006_add_settings_naming_template',
+			'0007_create_downloads',
 		]);
 		expect(migrations[0]?.statements[0]).toMatch(/^CREATE TABLE `settings`/);
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
@@ -69,6 +70,8 @@ describe('loadMigrations', () => {
 				'1793866538269:5d6abd820ee2da5083dffb963ef0b360ed74759c7335668f810359047edd0974',
 			'0006_add_settings_naming_template':
 				'1793880489126:9aaaad6a2042c70588db4ac854ab369cb55b2f50044f936b58192996624b04fe',
+			'0007_create_downloads':
+				'1793886357338:736ab78349d1cc175ce88e0edb3feb1b9f0013eebf0827bffc15d0777f4464d8',
 		});
 	});
 
@@ -150,6 +153,7 @@ describe('database', () => {
 			'0004_drop_settings_theme',
 			'0005_add_track_added_at',
 			'0006_add_settings_naming_template',
+			'0007_create_downloads',
 		]);
 		expect(await migrate()).toEqual([]);
 	});
@@ -230,6 +234,7 @@ describe('database', () => {
 			'0004_drop_settings_theme',
 			'0005_add_track_added_at',
 			'0006_add_settings_naming_template',
+			'0007_create_downloads',
 		]);
 		expect(await db.select().from(settings)).toEqual([
 			{ id: 1, musicLibraryPath: '/music', namingTemplate: null },
