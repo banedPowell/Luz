@@ -1,0 +1,23 @@
+{
+	"id": "dQw4w9WgXcQ",
+	"title": "Daft Punk - Digital Love (Official Audio)",
+	"_type": "video",
+	"uploader": "Daft Punk - Topic",
+	"channel": "Daft Punk",
+	"artist": null,
+	"artists": ["Daft Punk"],
+	"track": "Digital Love",
+	"album": "Discovery",
+	"release_year": 2001,
+	"duration": 301.4,
+	"thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+	"webpage_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+	"formats": [
+		{
+			"format_id": "251",
+			"ext": "webm",
+			"acodec": "opus"
+		}
+	],
+	"view_count": 12345
+}

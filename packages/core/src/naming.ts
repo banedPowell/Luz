@@ -242,23 +242,40 @@ function renderSegment(parts: TemplatePart[], tags: TrackTags): string {
 		.join('');
 }
 
+// Room kept for the extension in every file name, so a name is cut at the same place
+// whatever the output format (".opus", ".flac", ".m4a"…) and a preview made before the
+// format is chosen gives the same path as the download
+const extensionRoomBytes = 8;
+
+function renderStem(template: string, tags: TrackTags, nameBytes: number): string {
+	const result = parseNamingTemplate(template);
+	if (!result.success) {
+		throw new Error(`Invalid naming template: ${result.message}`);
+	}
+	const segments = result.template.map((parts) => renderSegment(parts, tags));
+	const fileName = segments.pop() ?? '';
+	const folders = segments.map((segment) => sanitizePathSegment(segment));
+	return [...folders, sanitizePathSegment(fileName, nameBytes)].join('/');
+}
+
 /**
  * The path of a track relative to the library folder, joined with `/` and ending with
  * the extension (".flac" or "flac"). Throws on an invalid template: validate it with
  * `namingTemplateSchema` first.
  */
 export function renderTrackPath(template: string, tags: TrackTags, extension: string): string {
-	const result = parseNamingTemplate(template);
-	if (!result.success) {
-		throw new Error(`Invalid naming template: ${result.message}`);
-	}
 	const suffix = sanitizePathSegment(extension.replace(/^\.+/, '').toLowerCase(), 16);
-	const segments = result.template.map((parts) => renderSegment(parts, tags));
-	const fileName = segments.pop() ?? '';
-	const folders = segments.map((segment) => sanitizePathSegment(segment));
 	// The cap leaves room for the extension, so it is never cut off
-	const name = sanitizePathSegment(fileName, maxSegmentBytes - suffix.length - 1);
-	return [...folders, `${name}.${suffix}`].join('/');
+	const room = Math.max(extensionRoomBytes, suffix.length + 1);
+	return `${renderStem(template, tags, maxSegmentBytes - room)}.${suffix}`;
+}
+
+/**
+ * The same path without its extension, for a preview made before the output format is
+ * known: adding a usual extension to it gives what `renderTrackPath` returns.
+ */
+export function renderTrackPathWithoutExtension(template: string, tags: TrackTags): string {
+	return renderStem(template, tags, maxSegmentBytes - extensionRoomBytes);
 }
 
 /** Tags of a made-up track, to show what a template gives before anything is downloaded. */

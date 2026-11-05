@@ -1,5 +1,6 @@
 export * from './browse.ts';
 export * from './config.ts';
+export * from './download-analysis.ts';
 export * from './format.ts';
 export * from './library.ts';
 export * from './naming.ts';

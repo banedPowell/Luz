@@ -94,3 +94,21 @@ export async function statFile(filePath: string): Promise<FileEntry | undefined>
 		return undefined;
 	}
 }
+
+/**
+ * The names of the regular files directly inside a directory, or an empty list when
+ * there is no readable directory at this path. Links are not followed, like the walk.
+ */
+export async function listFileNames(directory: string): Promise<string[]> {
+	try {
+		const names: string[] = [];
+		for await (const entry of await opendir(directory)) {
+			if (entry.isFile()) {
+				names.push(entry.name);
+			}
+		}
+		return names;
+	} catch {
+		return [];
+	}
+}

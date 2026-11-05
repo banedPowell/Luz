@@ -1,0 +1,50 @@
+{
+	"id": "PLexample",
+	"title": "Discovery",
+	"_type": "playlist",
+	"uploader": "Daft Punk - Topic",
+	"channel": "Daft Punk - Topic",
+	"webpage_url": "https://www.youtube.com/playlist?list=PLexample",
+	"entries": [
+		{
+			"_type": "url",
+			"ie_key": "Youtube",
+			"id": "aaaaaaaaaaa",
+			"url": "https://www.youtube.com/watch?v=aaaaaaaaaaa",
+			"title": "One More Time",
+			"uploader": "Daft Punk - Topic",
+			"channel": "Daft Punk - Topic",
+			"duration": 320,
+			"thumbnails": [
+				{
+					"url": "https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg?small",
+					"height": 94
+				},
+				{
+					"url": "https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg",
+					"height": 404
+				}
+			]
+		},
+		{
+			"_type": "url",
+			"ie_key": "Youtube",
+			"id": "bbbbbbbbbbb",
+			"url": "https://www.youtube.com/watch?v=bbbbbbbbbbb",
+			"title": "Aerodynamic",
+			"uploader": null,
+			"channel": "Daft Punk - Topic",
+			"duration": null,
+			"thumbnails": null
+		},
+		{
+			"_type": "url",
+			"ie_key": "Youtube",
+			"id": "ccccccccccc",
+			"url": "https://www.youtube.com/watch?v=ccccccccccc",
+			"title": "Digital Love",
+			"uploader": "Daft Punk - Topic",
+			"duration": 301.4
+		}
+	]
+}
