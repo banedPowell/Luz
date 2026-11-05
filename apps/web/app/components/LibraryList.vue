@@ -33,7 +33,8 @@ const nextOrder = computed<SortOrder>(() => (props.order === 'asc' ? 'desc' : 'a
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<p class="text-sm text-muted">{{ count }}</p>
-			<div class="flex items-center gap-2">
+			<!-- One control: what to sort by, then which way -->
+			<UFieldGroup role="group" aria-label="Sort">
 				<USelect
 					:model-value="sort"
 					:items="sortOptions"
@@ -41,6 +42,7 @@ const nextOrder = computed<SortOrder>(() => (props.order === 'asc' ? 'desc' : 'a
 					class="w-36"
 					@update:model-value="changeSort"
 				/>
+				<!-- A fixed width, so the group does not jump between "Ascending" and "Descending" -->
 				<UButton
 					:to="linkTo({ order: nextOrder, page: undefined })"
 					:icon="
@@ -50,8 +52,9 @@ const nextOrder = computed<SortOrder>(() => (props.order === 'asc' ? 'desc' : 'a
 					:aria-label="`Sort order: ${order === 'asc' ? 'ascending' : 'descending'}. Reverse it`"
 					color="neutral"
 					variant="subtle"
+					class="w-32"
 				/>
-			</div>
+			</UFieldGroup>
 		</div>
 
 		<slot />

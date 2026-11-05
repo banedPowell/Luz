@@ -41,7 +41,7 @@ describe('library search', () => {
 	}
 
 	async function add(fileName: string, tags: Partial<TrackTags> = {}) {
-		return insertTrack(db, file(fileName, tags));
+		return insertTrack(db, file(fileName, tags), 1_750_000_000_000);
 	}
 
 	function search(q: string) {
@@ -96,8 +96,13 @@ describe('library search', () => {
 			}),
 		]);
 		const track = (await search('glosoli')).tracks.items[0];
-		expect(track).toMatchObject({ album: { title: 'Takk...' }, artist: { name: 'Sigur Rós' } });
-		expect(track).not.toHaveProperty('path');
+		expect(track).toMatchObject({
+			addedAtMs: 1_750_000_000_000,
+			album: { title: 'Takk...' },
+			artist: { name: 'Sigur Rós' },
+		});
+		// The path lets a result's row menu copy it
+		expect(track?.path).toBe(path.join(dataDir, 'music', '4.flac'));
 	});
 
 	it('limits each group and still counts every match', async () => {

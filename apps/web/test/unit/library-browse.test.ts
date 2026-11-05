@@ -8,10 +8,13 @@ import {
 	trackTagsSchema,
 	type TrackTags,
 } from '@luz/core';
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
 import { insertTrack } from '../../server/infrastructure/database/library-repository';
+import { tracks as trackRows } from '../../server/infrastructure/database/schema';
+import { ensureSettings } from '../../server/infrastructure/database/settings-repository';
 import { applyMigrations, loadMigrations } from '../../server/infrastructure/database/migrations';
 import {
 	browseAlbums,
@@ -21,6 +24,7 @@ import {
 	getArtist,
 	getTrack,
 } from '../../server/services/library-browse';
+import { updateSettings } from '../../server/services/settings';
 import { audioOf } from './support/audio';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
@@ -36,6 +40,7 @@ describe('library browse', () => {
 		dataDir = mkdtempSync(path.join(tmpdir(), 'luz-test-'));
 		db = openDatabase(dataDir);
 		await applyMigrations(db.$client, await loadMigrations(readMigrationsFolder));
+		await ensureSettings(db);
 	});
 
 	afterEach(async () => {
@@ -43,14 +48,22 @@ describe('library browse', () => {
 		await removeWhenReleased(dataDir);
 	});
 
-	async function add(fileName: string, tags: Partial<TrackTags> = {}) {
-		return insertTrack(db, {
-			path: path.join(dataDir, 'music', fileName),
-			fileSize: 1024,
-			modifiedAtMs: 1_700_000_000_000,
-			tags: trackTagsSchema.parse(tags),
-			audio: audioOf(fileName),
-		});
+	async function add(
+		fileName: string,
+		tags: Partial<TrackTags> = {},
+		addedAtMs = 1_750_000_000_000,
+	) {
+		return insertTrack(
+			db,
+			{
+				path: path.join(dataDir, 'music', fileName),
+				fileSize: 1024,
+				modifiedAtMs: 1_700_000_000_000,
+				tags: trackTagsSchema.parse(tags),
+				audio: audioOf(fileName),
+			},
+			addedAtMs,
+		);
 	}
 
 	// Two artists, three albums, one untagged file; inserted out of order on purpose
@@ -147,7 +160,7 @@ describe('library browse', () => {
 			album: { title: null },
 			artist: { name: null },
 		});
-		expect(untagged).not.toHaveProperty('path');
+		expect(untagged?.path).toBe(path.join(dataDir, 'music', 'untagged.mp3'));
 	});
 
 	it('sorts tracks by album, keeping disc and track order inside each album', async () => {
@@ -197,6 +210,30 @@ describe('library browse', () => {
 			'Wave',
 			'Bravo',
 			null,
+		]);
+	});
+
+	it('sorts tracks by date added, ties by title, undated last in both directions', async () => {
+		await add('new.flac', { title: 'New' }, 3000);
+		await add('same-b.flac', { title: 'Same B' }, 2000);
+		await add('old.flac', { title: 'Old' }, 1000);
+		await add('same-a.flac', { title: 'same A' }, 2000);
+		const { id } = await add('undated.flac', { title: 'Undated' });
+		await db.update(trackRows).set({ addedAtMs: null }).where(eq(trackRows.id, id));
+
+		expect(titles(await tracks({ sort: 'added' }))).toEqual([
+			'Old',
+			'same A',
+			'Same B',
+			'New',
+			'Undated',
+		]);
+		expect(titles(await tracks({ sort: 'added', order: 'desc' }))).toEqual([
+			'New',
+			'same A',
+			'Same B',
+			'Old',
+			'Undated',
 		]);
 	});
 
@@ -293,6 +330,46 @@ describe('library browse', () => {
 		expect(album?.tracks[2]?.artists).toBe('Alpha, Guest');
 	});
 
+	it('gives an album the folders of its tracks, once each, sorted and named in the library', async () => {
+		const music = path.join(dataDir, 'music');
+		await updateSettings(db, { musicLibraryPath: music });
+		const tags = { album: 'Split', albumArtist: 'Gamma' };
+		await add(path.join('Split', 'CD2', '01.flac'), { ...tags, discNumber: 2 });
+		const first = await add(path.join('Split', 'CD1', '01.flac'), { ...tags, discNumber: 1 });
+		await add(path.join('Split', 'CD1', '02.flac'), { ...tags, discNumber: 1 });
+
+		const album = await getAlbum(db, first.album.id);
+		const artist = await getArtist(db, first.artist.id);
+
+		const folders = ['CD1', 'CD2'].map((disc) => ({
+			path: path.join(music, 'Split', disc),
+			relativePath: path.join('Split', disc),
+		}));
+		expect(album?.folders).toEqual(folders);
+		expect(artist?.albums[0]?.folders).toEqual(folders);
+	});
+
+	it('names no folder in the library when it is outside or none is set', async () => {
+		const album = await add(path.join('Loose', '01.flac'));
+
+		expect((await getAlbum(db, album.album.id))?.folders[0]?.relativePath).toBeNull();
+		await updateSettings(db, { musicLibraryPath: path.join(dataDir, 'other') });
+		expect((await getAlbum(db, album.album.id))?.folders[0]?.relativePath).toBeNull();
+		await updateSettings(db, { musicLibraryPath: path.join(dataDir, 'music', 'Loose') });
+		// The library folder itself is shown in full
+		expect((await getAlbum(db, album.album.id))?.folders[0]?.relativePath).toBeNull();
+	});
+
+	it('gives each track of a list its codec, bitrate and date added', async () => {
+		await add('coded.mp3', { title: 'Coded' }, 1234);
+
+		expect((await tracks({})).items[0]).toMatchObject({
+			codec: 'MP3',
+			bitrate: null,
+			addedAtMs: 1234,
+		});
+	});
+
 	it('returns an artist with its albums, oldest first, and their tracks', async () => {
 		await addLibrary();
 		const beta = (await browseArtists(db, artistListQuerySchema.parse({}))).items[1];
@@ -337,6 +414,7 @@ describe('library browse', () => {
 			channels: null,
 			fileSize: 1024,
 			modifiedAtMs: 1_700_000_000_000,
+			addedAtMs: 1_750_000_000_000,
 			album,
 			artist,
 		});

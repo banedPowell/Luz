@@ -70,7 +70,7 @@ describe('library page', () => {
 		expect(wrapper.text()).not.toContain('Scan library');
 	});
 
-	it('shows the scan running, then its summary', async () => {
+	it('shows the scan running, then sums it up in a toast', async () => {
 		gate = new Promise((resolve) => {
 			release = resolve;
 		});
@@ -84,10 +84,12 @@ describe('library page', () => {
 		});
 		release();
 		await vi.waitFor(() => {
-			expect(wrapper.text()).toContain(
+			expect(document.body.textContent).toContain(
 				'2 tracks added, 1 updated, 3 removed, 4 unchanged, 1 file skipped.',
 			);
 		});
+		// The toast leaves the page as it was
+		expect(wrapper.text()).not.toContain('Scan complete');
 	});
 
 	it('lists the tracks a scan indexed, from an empty library', async () => {
@@ -98,12 +100,16 @@ describe('library page', () => {
 			{
 				id: 1,
 				title: 'Fresh Track',
+				path: '/music/01.flac',
 				fileName: '01.flac',
 				artists: 'Alpha',
 				trackNumber: 1,
 				discNumber: 1,
 				year: 2001,
 				durationMs: 1000,
+				codec: 'FLAC',
+				bitrate: 900_000,
+				addedAtMs: null,
 				album: { id: 1, title: 'Alpha One' },
 				artist: { id: 1, name: 'Alpha' },
 			},

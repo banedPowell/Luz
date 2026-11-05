@@ -131,8 +131,8 @@ describe('scanLibrary', () => {
 		return filePath;
 	}
 
-	async function indexedScan() {
-		await scanLibrary(db, reader);
+	async function indexedScan(now?: () => number) {
+		await scanLibrary(db, reader, now);
 		reader.reads = [];
 	}
 
@@ -153,6 +153,18 @@ describe('scanLibrary', () => {
 			fileSize: 'flac data'.length,
 			album: { title: 'Album One' },
 		});
+	});
+
+	it('dates the tracks it adds with the time the scan started', async () => {
+		const first = file('Album/01.mp3');
+		const second = file('Album/02.mp3');
+		let clock = 1_750_000_000_000;
+
+		await scanLibrary(db, reader, () => clock++);
+
+		expect(clock).toBe(1_750_000_000_001);
+		expect(await findTrackByPath(db, first)).toMatchObject({ addedAtMs: 1_750_000_000_000 });
+		expect(await findTrackByPath(db, second)).toMatchObject({ addedAtMs: 1_750_000_000_000 });
 	});
 
 	it('ignores files that are not audio, without reading them', async () => {
@@ -235,6 +247,24 @@ describe('scanLibrary', () => {
 				album: { title: 'Other Album' },
 			});
 			expect(await albumTitles()).toEqual(['Album', 'Other Album']);
+		});
+
+		it('keeps the date added of a file read again', async () => {
+			const changed = indexedFile('Album/01.mp3');
+			await indexedScan(() => 1_750_000_000_000);
+			writeFileSync(changed, 'retagged audio');
+			const added = indexedFile('Album/02.mp3');
+
+			expect(await scanLibrary(db, reader, () => 1_760_000_000_000)).toEqual(
+				summary({ added: 1, updated: 1 }),
+			);
+			expect(await findTrackByPath(db, changed)).toMatchObject({
+				fileSize: 'retagged audio'.length,
+				addedAtMs: 1_750_000_000_000,
+			});
+			expect(await findTrackByPath(db, added)).toMatchObject({
+				addedAtMs: 1_760_000_000_000,
+			});
 		});
 
 		it('refreshes the codec of a file read again', async () => {

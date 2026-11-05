@@ -32,6 +32,14 @@ describe('list query schemas', () => {
 		).toEqual({ sort: 'duration', order: 'desc', page: 3, pageSize: 20 });
 	});
 
+	it('sorts tracks by date added', () => {
+		expect(trackListQuerySchema.parse({ sort: 'added', order: 'desc' })).toMatchObject({
+			sort: 'added',
+			order: 'desc',
+		});
+		expect(albumListQuerySchema.safeParse({ sort: 'added' }).success).toBe(false);
+	});
+
 	it.each([
 		{ sort: 'duration' },
 		{ sort: 'name' },

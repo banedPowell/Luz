@@ -22,3 +22,10 @@ export function trackArtists(track: Pick<TrackSummary, 'artists' | 'artist'>): s
 export function plural(count: number, word: string): string {
 	return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
+
+const addedFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+
+/** The day a scan first indexed a track; empty for a track indexed before it was stored. */
+export function formatAdded(addedAtMs: number | null): string {
+	return addedAtMs === null ? '' : addedFormat.format(addedAtMs);
+}

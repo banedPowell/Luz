@@ -25,6 +25,7 @@ if (error.value) {
 				<template v-if="data.year"> · {{ data.year }}</template>
 				· {{ plural(data.trackCount, 'track') }}
 			</p>
+			<AlbumFolders :folders="data.folders" class="mt-1" />
 		</div>
 		<AlbumTracks :tracks="data.tracks" :caption="`Tracks of ${albumTitle(data.title)}`" />
 	</section>

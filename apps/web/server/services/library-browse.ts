@@ -24,6 +24,7 @@ import {
 	listTracks,
 	type ListWindow,
 } from '../infrastructure/database/library-repository';
+import { readSettings } from '../infrastructure/database/settings-repository';
 
 // The database sorts and cuts the page; a page past the end is empty, not an error
 
@@ -70,12 +71,13 @@ export function browseArtists(
 	return pageOf(query, listArtists(db, windowOf(query)), countArtists(db));
 }
 
-export function getAlbum(db: Database, id: number): Promise<AlbumDetail | undefined> {
-	return findAlbum(db, id);
+// Folders are shown relative to the music library, which the settings hold
+export async function getAlbum(db: Database, id: number): Promise<AlbumDetail | undefined> {
+	return findAlbum(db, id, (await readSettings(db)).musicLibraryPath);
 }
 
-export function getArtist(db: Database, id: number): Promise<ArtistDetail | undefined> {
-	return findArtist(db, id);
+export async function getArtist(db: Database, id: number): Promise<ArtistDetail | undefined> {
+	return findArtist(db, id, (await readSettings(db)).musicLibraryPath);
 }
 
 export function getTrack(db: Database, id: number): Promise<TrackDetail | undefined> {

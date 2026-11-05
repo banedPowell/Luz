@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { AlbumQuality } from './quality.ts';
 
-export const trackSortKeys = ['title', 'artist', 'album', 'year', 'duration'] as const;
+export const trackSortKeys = ['title', 'artist', 'album', 'year', 'duration', 'added'] as const;
 export const albumSortKeys = ['title', 'artist', 'year'] as const;
 export const artistSortKeys = ['name'] as const;
 export const sortOrders = ['asc', 'desc'] as const;
@@ -58,6 +58,8 @@ export interface LibraryPage<T> {
 export interface TrackSummary {
 	id: number;
 	title: string | null;
+	// The absolute path: Luz shows the files it manages
+	path: string;
 	// Shown in place of a missing title
 	fileName: string;
 	artists: string | null;
@@ -65,6 +67,11 @@ export interface TrackSummary {
 	discNumber: number | null;
 	year: number | null;
 	durationMs: number | null;
+	// `null` until a scan reads the file again, for a track indexed before codecs were stored
+	codec: string | null;
+	bitrate: number | null;
+	// When the scan first indexed the file; `null` for a track indexed before it was stored
+	addedAtMs: number | null;
 	album: { id: number; title: string | null };
 	artist: { id: number; name: string | null };
 }
@@ -93,22 +100,29 @@ export interface ArtistSummary {
  * they were stored, until the next scan reads it again.
  */
 export interface TrackDetail extends TrackSummary {
-	// The absolute path: Luz shows the files it manages
-	path: string;
 	genre: string | null;
 	fileSize: number;
 	modifiedAtMs: number;
-	codec: string | null;
 	codecProfile: string | null;
 	lossless: boolean | null;
-	bitrate: number | null;
 	sampleRate: number | null;
 	bitDepth: number | null;
 	channels: number | null;
 }
 
+/** A folder holding tracks of an album. */
+export interface AlbumFolder {
+	path: string;
+	// Relative to the music library, shorter to read; `null` for the library itself or a
+	// folder outside it
+	relativePath: string | null;
+}
+
 /** An album with its tracks, by disc then track number. */
 export interface AlbumDetail extends AlbumSummary {
+	// The folders holding its tracks, sorted by path: usually one, several when the discs or
+	// tracks of one album sit in different folders
+	folders: AlbumFolder[];
 	tracks: TrackSummary[];
 }
 

@@ -20,16 +20,22 @@ function position(track: TrackSummary): string {
 
 const columns: TableColumn<TrackSummary>[] = [
 	{ id: 'position', header: '#', meta: { class: { td: 'w-12 tabular-nums text-muted' } } },
+	// The artist sits under the title; the album is the page itself
 	{ id: 'title', header: 'Title' },
-	{
-		id: 'artist',
-		header: 'Artist',
-		meta: { class: { th: 'hidden sm:table-cell', td: 'hidden sm:table-cell' } },
-	},
 	{
 		id: 'duration',
 		header: 'Duration',
-		meta: { class: { th: 'text-end', td: 'text-end tabular-nums' } },
+		meta: {
+			class: {
+				th: 'hidden text-end sm:table-cell',
+				td: 'hidden text-end tabular-nums sm:table-cell',
+			},
+		},
+	},
+	{
+		id: 'added',
+		header: 'Date added',
+		meta: { class: { th: 'hidden md:table-cell', td: 'hidden md:table-cell text-muted' } },
 	},
 	{
 		id: 'actions',
@@ -42,13 +48,11 @@ const columns: TableColumn<TrackSummary>[] = [
 <template>
 	<UTable :data="tracks" :columns="columns" :caption="caption">
 		<template #position-cell="{ row }">{{ position(row.original) }}</template>
-		<template #title-cell="{ row }">
-			<span class="font-medium text-highlighted">{{ trackTitle(row.original) }}</span>
-		</template>
-		<template #artist-cell="{ row }">{{ trackArtists(row.original) }}</template>
+		<template #title-cell="{ row }"><TrackTitle :track="row.original" /></template>
 		<template #duration-cell="{ row }">
 			{{ formatDuration(row.original.durationMs) ?? '' }}
 		</template>
+		<template #added-cell="{ row }">{{ formatAdded(row.original.addedAtMs) }}</template>
 		<template #actions-cell="{ row }">
 			<TrackMenu :track="row.original" />
 		</template>

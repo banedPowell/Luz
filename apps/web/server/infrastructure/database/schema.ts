@@ -83,6 +83,10 @@ export const tracks = sqliteTable(
 		// Compared by the rescan to skip files that did not change
 		fileSize: integer('file_size').notNull(),
 		modifiedAtMs: integer('modified_at_ms').notNull(),
+		// When a scan first indexed the file, kept when it reads the file again: the
+		// file's own dates change with retagging or copying. Rows indexed before the column
+		// existed got their file's modification time (migration 0005).
+		addedAtMs: integer('added_at_ms'),
 	},
 	(table) => [index('tracks_album_id').on(table.albumId)],
 );
