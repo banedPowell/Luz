@@ -5,6 +5,23 @@ defineProps<{ folders: AlbumFolder[] }>();
 
 const appConfig = useAppConfig();
 const { copyPath } = useCopyPath();
+
+// A copied folder shows a check on its button for a moment: the only, quiet, sign of success
+const copied = ref<string>();
+let reset: ReturnType<typeof setTimeout> | undefined;
+
+async function copy(path: string) {
+	if (!(await copyPath(path))) {
+		return;
+	}
+	copied.value = path;
+	clearTimeout(reset);
+	reset = setTimeout(() => {
+		copied.value = undefined;
+	}, 2000);
+}
+
+onBeforeUnmount(() => clearTimeout(reset));
 </script>
 
 <template>
@@ -16,16 +33,20 @@ const { copyPath } = useCopyPath();
 			<span class="min-w-0 font-mono text-sm break-all text-muted" :title="folder.path">
 				{{ folder.relativePath ?? folder.path }}
 			</span>
-			<UTooltip text="Copy path">
+			<UTooltip :text="copied === folder.path ? 'Copied' : 'Copy path'">
 				<UButton
-					:icon="appConfig.ui.icons.copy"
+					:icon="
+						copied === folder.path
+							? appConfig.ui.icons.copyCheck
+							: appConfig.ui.icons.copy
+					"
 					:aria-label="`Copy path ${folder.path}`"
 					size="xs"
 					color="neutral"
 					variant="ghost"
 					square
 					class="shrink-0"
-					@click="copyPath(folder.path)"
+					@click="copy(folder.path)"
 				/>
 			</UTooltip>
 		</li>

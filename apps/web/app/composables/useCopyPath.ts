@@ -1,14 +1,15 @@
 /**
- * Copies a file or folder path, saying so in a toast: the menu that offered the action has
- * closed by then, so the toast is the only feedback the user gets.
+ * Copies a file or folder path. Success stays quiet (the author asked for no toast); a refused
+ * clipboard is said in a toast, since the path did not reach it.
  */
 export function useCopyPath() {
 	const toast = useToast();
 	const appConfig = useAppConfig();
 
-	async function copyPath(path: string): Promise<void> {
+	async function copyPath(path: string): Promise<boolean> {
 		try {
 			await navigator.clipboard.writeText(path);
+			return true;
 		} catch {
 			// The clipboard needs a secure context and the page's permission
 			toast.add({
@@ -17,13 +18,8 @@ export function useCopyPath() {
 				color: 'error',
 				icon: appConfig.ui.icons.error,
 			});
-			return;
+			return false;
 		}
-		toast.add({
-			title: 'Path copied',
-			description: path,
-			icon: appConfig.ui.icons.copyCheck,
-		});
 	}
 
 	return { copyPath };

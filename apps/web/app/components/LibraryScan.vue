@@ -6,7 +6,7 @@ defineProps<{
 }>();
 
 const appConfig = useAppConfig();
-const { scanning, summary, failure, scan } = useLibraryScan();
+const { scanning, failure, scan } = useLibraryScan();
 
 const failureMessages: Record<ScanFailure, string> = {
 	'library-path-unset': 'No music library folder is set.',
@@ -56,16 +56,6 @@ const failureMessages: Record<ScanFailure, string> = {
 						]
 					: undefined
 			"
-		/>
-
-		<UAlert
-			v-else-if="summary"
-			role="status"
-			title="Scan complete"
-			:description="`${plural(summary.added, 'track')} added, ${summary.updated} updated, ${summary.removed} removed, ${summary.unchanged} unchanged, ${plural(summary.skipped, 'file')} skipped.`"
-			color="success"
-			variant="subtle"
-			:icon="appConfig.ui.icons.success"
 		/>
 	</div>
 </template>

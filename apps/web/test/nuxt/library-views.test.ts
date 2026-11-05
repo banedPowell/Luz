@@ -322,14 +322,17 @@ describe('library views', () => {
 			['Alpha/Alpha One/CD1', '/music/Alpha/Alpha One/CD1'],
 			['/elsewhere/Alpha One', '/elsewhere/Alpha One'],
 		]);
-		await wrapper
-			.find('button[aria-label="Copy path /music/Alpha/Alpha One/CD1"]')
-			.trigger('click');
+		const button = wrapper.find('button[aria-label="Copy path /music/Alpha/Alpha One/CD1"]');
+		await button.trigger('click');
 
 		expect(writeText).toHaveBeenCalledWith('/music/Alpha/Alpha One/CD1');
+		// A quiet check on the button, no toast
 		await vi.waitFor(() => {
-			expect(document.body.textContent).toContain('Path copied');
+			expect(button.find('[data-slot="leadingIcon"]').classes()).toContain(
+				'i-pixelarticons:clipboard-note',
+			);
 		});
+		expect(document.body.textContent).not.toContain('copied');
 		writeText.mockRestore();
 	});
 
