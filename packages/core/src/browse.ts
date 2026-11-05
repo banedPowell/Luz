@@ -39,6 +39,19 @@ export const artistListQuerySchema = z.object({
 	...pagination,
 });
 
+/** How a library list is drawn: a dense table, or a grid of covers. */
+export const listViews = ['table', 'grid'] as const;
+
+export type ListView = (typeof listViews)[number];
+
+export const defaultListView: ListView = 'table';
+
+// Read by the page only, never sent to the API: an unknown view falls back to the table
+// rather than failing the whole query
+export const listViewQuerySchema = z.object({
+	view: z.enum(listViews).catch(defaultListView),
+});
+
 export type TrackListQuery = z.infer<typeof trackListQuerySchema>;
 export type AlbumListQuery = z.infer<typeof albumListQuerySchema>;
 export type ArtistListQuery = z.infer<typeof artistListQuerySchema>;

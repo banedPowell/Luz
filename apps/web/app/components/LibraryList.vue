@@ -11,6 +11,8 @@ const props = defineProps<{
 	sort: string;
 	order: SortOrder;
 	sortOptions: { label: string; value: string }[];
+	// Only lists that have a grid offer the switch: no control that does nothing
+	viewSwitch?: boolean;
 }>();
 
 const route = useRoute();
@@ -33,28 +35,33 @@ const nextOrder = computed<SortOrder>(() => (props.order === 'asc' ? 'desc' : 'a
 	<div class="flex flex-col gap-4">
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<p class="text-sm text-muted">{{ count }}</p>
-			<!-- One control: what to sort by, then which way -->
-			<UFieldGroup role="group" aria-label="Sort">
-				<USelect
-					:model-value="sort"
-					:items="sortOptions"
-					aria-label="Sort by"
-					class="w-36"
-					@update:model-value="changeSort"
-				/>
-				<!-- A fixed width, so the group does not jump between "Ascending" and "Descending" -->
-				<UButton
-					:to="linkTo({ order: nextOrder, page: undefined })"
-					:icon="
-						order === 'asc' ? appConfig.ui.icons.arrowUp : appConfig.ui.icons.arrowDown
-					"
-					:label="order === 'asc' ? 'Ascending' : 'Descending'"
-					:aria-label="`Sort order: ${order === 'asc' ? 'ascending' : 'descending'}. Reverse it`"
-					color="neutral"
-					variant="subtle"
-					class="w-32"
-				/>
-			</UFieldGroup>
+			<div class="flex flex-wrap items-center gap-3">
+				<LibraryViewSwitch v-if="viewSwitch" />
+				<!-- One control: what to sort by, then which way -->
+				<UFieldGroup role="group" aria-label="Sort">
+					<USelect
+						:model-value="sort"
+						:items="sortOptions"
+						aria-label="Sort by"
+						class="w-36"
+						@update:model-value="changeSort"
+					/>
+					<!-- A fixed width, so the group does not jump between "Ascending" and "Descending" -->
+					<UButton
+						:to="linkTo({ order: nextOrder, page: undefined })"
+						:icon="
+							order === 'asc'
+								? appConfig.ui.icons.arrowUp
+								: appConfig.ui.icons.arrowDown
+						"
+						:label="order === 'asc' ? 'Ascending' : 'Descending'"
+						:aria-label="`Sort order: ${order === 'asc' ? 'ascending' : 'descending'}. Reverse it`"
+						color="neutral"
+						variant="subtle"
+						class="w-32"
+					/>
+				</UFieldGroup>
+			</div>
 		</div>
 
 		<slot />
