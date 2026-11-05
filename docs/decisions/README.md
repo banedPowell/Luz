@@ -12,6 +12,7 @@ A new decision gets the next number. A decision is never rewritten: when it no l
 | [0004](0004-prototype-as-reference.md)          | The prototype is a reference, not a base            | Accepted |
 | [0005](0005-tag-reading-with-music-metadata.md) | Tags are read with music-metadata                   | Accepted |
 | [0006](0006-theme-in-a-cookie.md)               | The theme is a browser preference, kept in a cookie | Accepted |
+| [0007](0007-download-jobs.md)                   | Downloads run as persisted jobs, one at a time      | Accepted |
 
 ## Template
 
