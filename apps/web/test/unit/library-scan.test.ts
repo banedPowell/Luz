@@ -13,10 +13,12 @@ import path from 'node:path';
 import {
 	trackAudioOf,
 	trackTagsSchema,
+	type ScanScope,
 	type ScanSummary,
 	type TrackAudio,
 	type TrackTags,
 } from '@luz/core';
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
@@ -132,12 +134,33 @@ describe('scanLibrary', () => {
 	}
 
 	async function indexedScan(now?: () => number) {
-		await scanLibrary(db, reader, now);
+		await scanLibrary(db, reader, {}, now);
 		reader.reads = [];
 	}
 
 	async function albumTitles() {
 		return (await db.select().from(albums).orderBy(albums.title)).map((row) => row.title);
+	}
+
+	async function albumId(title: string) {
+		const [row] = await db.select().from(albums).where(eq(albums.title, title));
+		if (!row) {
+			throw new Error(`No album ${title}`);
+		}
+		return row.id;
+	}
+
+	async function trackId(filePath: string) {
+		const track = await findTrackByPath(db, filePath);
+		if (!track) {
+			throw new Error(`No track at ${filePath}`);
+		}
+		return track.id;
+	}
+
+	function retag(filePath: string) {
+		writeFileSync(filePath, 'retagged audio');
+		reader.tags.set(filePath, { title: 'Retagged' });
 	}
 
 	it('indexes the audio files of nested folders', async () => {
@@ -160,7 +183,7 @@ describe('scanLibrary', () => {
 		const second = file('Album/02.mp3');
 		let clock = 1_750_000_000_000;
 
-		await scanLibrary(db, reader, () => clock++);
+		await scanLibrary(db, reader, {}, () => clock++);
 
 		expect(clock).toBe(1_750_000_000_001);
 		expect(await findTrackByPath(db, first)).toMatchObject({ addedAtMs: 1_750_000_000_000 });
@@ -255,7 +278,7 @@ describe('scanLibrary', () => {
 			writeFileSync(changed, 'retagged audio');
 			const added = indexedFile('Album/02.mp3');
 
-			expect(await scanLibrary(db, reader, () => 1_760_000_000_000)).toEqual(
+			expect(await scanLibrary(db, reader, {}, () => 1_760_000_000_000)).toEqual(
 				summary({ added: 1, updated: 1 }),
 			);
 			expect(await findTrackByPath(db, changed)).toMatchObject({
@@ -388,6 +411,123 @@ describe('scanLibrary', () => {
 			expect(await albumTitles()).toEqual(['Current']);
 			expect(snapshot(old)).toEqual(before);
 		});
+
+		describe('with a scope', () => {
+			it('reads again the changed files of the albums it is given, and only them', async () => {
+				const first = indexedFile('First/01.mp3');
+				const second = indexedFile('Second/01.mp3');
+				indexedFile('First/02.mp3');
+				await indexedScan();
+				retag(first);
+				retag(second);
+				const scope: ScanScope = { kind: 'albums', ids: [await albumId('First')] };
+
+				expect(await scanLibrary(db, reader, { scope })).toEqual(
+					summary({ updated: 1, unchanged: 1 }),
+				);
+				expect(reader.reads).toEqual([first]);
+				expect(await findTrackByPath(db, first)).toMatchObject({ title: 'Retagged' });
+				expect(await findTrackByPath(db, second)).toMatchObject({ title: '01.mp3' });
+			});
+
+			it('adds no new file, even in a folder of the scope', async () => {
+				indexedFile('Album/01.mp3');
+				await indexedScan();
+				const added = indexedFile('Album/02.mp3');
+				const scope: ScanScope = { kind: 'albums', ids: [await albumId('Album')] };
+
+				expect(await scanLibrary(db, reader, { scope })).toEqual(summary({ unchanged: 1 }));
+				expect(reader.reads).toEqual([]);
+				expect(await findTrackByPath(db, added)).toBeUndefined();
+			});
+
+			it('removes the tracks of the scope whose file is gone, and no other', async () => {
+				const removed = indexedFile('Album/01.mp3');
+				const outside = indexedFile('Album/02.mp3');
+				await indexedScan();
+				const scope: ScanScope = { kind: 'tracks', ids: [await trackId(removed)] };
+				rmSync(removed);
+				rmSync(outside);
+
+				expect(await scanLibrary(db, reader, { scope })).toEqual(summary({ removed: 1 }));
+				expect(await findTrackByPath(db, removed)).toBeUndefined();
+				expect(await findTrackByPath(db, outside)).toBeDefined();
+			});
+
+			it('removes a track of the scope outside the library folder, leaving its file', async () => {
+				const old = indexedFile('Old/01.mp3');
+				await indexedScan();
+				const scope: ScanScope = { kind: 'tracks', ids: [await trackId(old)] };
+				const before = snapshot(old);
+				await writeSettings(db, { musicLibraryPath: otherMusic });
+
+				expect(await scanLibrary(db, reader, { scope })).toEqual(summary({ removed: 1 }));
+				expect(reader.reads).toEqual([]);
+				expect(await db.select().from(tracks)).toEqual([]);
+				expect(snapshot(old)).toEqual(before);
+			});
+
+			it('reads the files of the scope again when forced, unchanged or not', async () => {
+				const forced = indexedFile('Album/01.mp3');
+				const other = indexedFile('Album/02.mp3');
+				await indexedScan();
+				reader.tags.set(forced, { title: 'Retagged in place' });
+				const before = snapshot(forced);
+				const scope: ScanScope = { kind: 'tracks', ids: [await trackId(forced)] };
+
+				expect(await scanLibrary(db, reader, { scope, force: true })).toEqual(
+					summary({ updated: 1 }),
+				);
+				expect(reader.reads).toEqual([forced]);
+				expect(await findTrackByPath(db, forced)).toMatchObject({
+					title: 'Retagged in place',
+				});
+				expect(await findTrackByPath(db, other)).toMatchObject({ title: '02.mp3' });
+				expect(snapshot(forced)).toEqual(before);
+			});
+
+			it('keeps a forced unchanged track whose tags cannot be read', async () => {
+				const kept = indexedFile('Album/01.mp3');
+				await indexedScan();
+				reader.unreadable.add(kept);
+				const scope: ScanScope = { kind: 'tracks', ids: [await trackId(kept)] };
+
+				expect(await scanLibrary(db, reader, { scope, force: true })).toEqual(
+					summary({ skipped: 1 }),
+				);
+				expect(await findTrackByPath(db, kept)).toMatchObject({ title: '01.mp3' });
+			});
+
+			it('reads the whole library again when forced without a scope', async () => {
+				indexedFile('Album/01.mp3');
+				indexedFile('Other/01.mp3');
+				await indexedScan();
+
+				expect(await scanLibrary(db, reader, { force: true })).toEqual(
+					summary({ updated: 2 }),
+				);
+				expect(reader.reads).toHaveLength(2);
+			});
+
+			it('does nothing for ids that match no album or track', async () => {
+				indexedFile('Album/01.mp3');
+				await indexedScan();
+
+				expect(
+					await scanLibrary(db, reader, {
+						scope: { kind: 'albums', ids: [999] },
+						force: true,
+					}),
+				).toEqual(summary({}));
+				expect(
+					await scanLibrary(db, reader, {
+						scope: { kind: 'tracks', ids: [999] },
+						force: true,
+					}),
+				).toEqual(summary({}));
+				expect(reader.reads).toEqual([]);
+			});
+		});
 	});
 
 	it('refuses to start without a library folder', async () => {
@@ -414,5 +554,17 @@ describe('scanLibrary', () => {
 
 		reader.gate = undefined;
 		expect(await scanLibrary(db, reader)).toEqual(summary({ unchanged: 1 }));
+	});
+
+	it('refuses a scoped scan while a full one runs', async () => {
+		file('Album/01.mp3');
+		const { promise, resolve: release } = Promise.withResolvers<void>();
+		reader.gate = promise;
+
+		const first = scanLibrary(db, reader);
+		const scope: ScanScope = { kind: 'tracks', ids: [1] };
+		expect((await scanError(scanLibrary(db, reader, { scope }))).reason).toBe('scan-running');
+		release();
+		await first;
 	});
 });

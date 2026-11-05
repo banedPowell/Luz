@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { ensureDirectory, isDirectory, walkFiles } from '../../server/infrastructure/file-system';
+import {
+	ensureDirectory,
+	isDirectory,
+	statFile,
+	walkFiles,
+} from '../../server/infrastructure/file-system';
 
 describe('ensureDirectory', () => {
 	let root: string;
@@ -121,5 +126,38 @@ describe('isDirectory', () => {
 		expect(await isDirectory(root)).toBe(true);
 		expect(await isDirectory(path.join(root, 'file.mp3'))).toBe(false);
 		expect(await isDirectory(path.join(root, 'missing'))).toBe(false);
+	});
+});
+
+describe('statFile', () => {
+	let root: string;
+
+	beforeEach(() => {
+		root = mkdtempSync(path.join(tmpdir(), 'luz-test-'));
+	});
+
+	afterEach(() => {
+		rmSync(root, { recursive: true, force: true });
+	});
+
+	it('gives the size and date of a regular file', async () => {
+		const filePath = path.join(root, 'song.mp3');
+		writeFileSync(filePath, 'abc');
+
+		expect(await statFile(filePath)).toEqual({
+			path: filePath,
+			size: 3,
+			modifiedAtMs: Math.trunc(statSync(filePath).mtimeMs),
+		});
+	});
+
+	it('finds no file at a folder, a link or a missing path', async () => {
+		const folder = path.join(root, 'folder');
+		mkdirSync(folder);
+		symlinkSync(folder, path.join(root, 'link'), 'junction');
+
+		expect(await statFile(folder)).toBeUndefined();
+		expect(await statFile(path.join(root, 'link'))).toBeUndefined();
+		expect(await statFile(path.join(root, 'missing.mp3'))).toBeUndefined();
 	});
 });

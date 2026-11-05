@@ -36,7 +36,7 @@ It starts as a web app for one person on their own computer, then becomes a self
 - Scan a library folder and read tags from audio files.
 - Tracks, albums and artists built from those tags, stored in the database.
 - Browse, search and sort tracks, albums and artists.
-- Rescan detects added, changed and removed files.
+- Rescan detects added, changed and removed files, for the whole library or for chosen albums and tracks.
 - Library views follow the [interface principles](design/interface-principles.md): table and grid, cassette placeholder for missing covers, quality badge, visible folder and file names.
 
 **Out of scope:** editing tags, downloading.

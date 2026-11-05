@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { albumListQuerySchema, type AlbumSummary } from '@luz/core';
 import type { TableColumn } from '@nuxt/ui';
+import { h } from 'vue';
 
 const { query } = useListQuery(albumListQuerySchema);
 const { data } = await useFetch('/api/library/albums', { query });
@@ -43,6 +44,11 @@ const columns: TableColumn<AlbumSummary>[] = [
 				td: 'hidden text-end tabular-nums sm:table-cell',
 			},
 		},
+	},
+	{
+		id: 'actions',
+		header: () => h('span', { class: 'sr-only' }, 'Actions'),
+		meta: { class: { th: 'w-px px-1', td: 'w-px px-1 py-0 text-end' } },
 	},
 ];
 </script>
@@ -92,7 +98,10 @@ const columns: TableColumn<AlbumSummary>[] = [
 						{{ artistName(album.artist.name) }}
 					</ULink>
 				</div>
-				<AlbumQualityBadge :quality="album.quality" class="self-start" />
+				<div class="flex items-center justify-between gap-2">
+					<AlbumQualityBadge :quality="album.quality" />
+					<AlbumMenu :album="album" class="-me-2 ms-auto" />
+				</div>
 			</li>
 		</ul>
 		<UTable
@@ -143,6 +152,7 @@ const columns: TableColumn<AlbumSummary>[] = [
 				<AlbumQualityBadge :quality="row.original.quality" />
 			</template>
 			<template #tracks-cell="{ row }">{{ row.original.trackCount }}</template>
+			<template #actions-cell="{ row }"><AlbumMenu :album="row.original" /></template>
 		</UTable>
 	</LibraryList>
 </template>

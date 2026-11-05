@@ -7,6 +7,13 @@ const { data, error } = await useFetch(`/api/library/albums/${String(route.param
 if (error.value) {
 	throw createError({ statusCode: error.value.statusCode ?? 500, fatal: true });
 }
+// A rescan can empty the album, or move all its tracks to a renamed one with another id:
+// the album is then gone, and the list is the nearest page that still makes sense
+watch(error, async (refreshError) => {
+	if (refreshError?.statusCode === 404) {
+		await navigateTo('/library/albums', { replace: true });
+	}
+});
 </script>
 
 <template>
@@ -19,6 +26,7 @@ if (error.value) {
 						{{ albumTitle(data.title) }}
 					</h2>
 					<AlbumQualityBadge :quality="data.quality" />
+					<AlbumMenu :album="data" />
 				</div>
 				<p class="text-sm text-muted">
 					<ULink :to="`/library/artists/${data.artist.id}`">

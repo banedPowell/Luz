@@ -8,6 +8,7 @@ const props = defineProps<{
 
 const appConfig = useAppConfig();
 const { copyPath } = useCopyPath();
+const { rescan } = useLibraryScan();
 const detailsOpen = ref(false);
 const title = computed(() => trackTitle(props.track));
 
@@ -18,6 +19,11 @@ const items = computed<DropdownMenuItem[]>(() => [
 		label: 'Copy path',
 		icon: appConfig.ui.icons.copy,
 		onSelect: () => copyPath(props.track.path),
+	},
+	{
+		label: 'Rescan',
+		icon: appConfig.ui.icons.reload,
+		onSelect: () => rescan({ kind: 'tracks', ids: [props.track.id] }),
 	},
 ]);
 </script>

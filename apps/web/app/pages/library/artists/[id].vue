@@ -7,6 +7,12 @@ const { data, error } = await useFetch(`/api/library/artists/${String(route.para
 if (error.value) {
 	throw createError({ statusCode: error.value.statusCode ?? 500, fatal: true });
 }
+// A rescan of its albums or tracks can leave the artist with none, which removes it
+watch(error, async (refreshError) => {
+	if (refreshError?.statusCode === 404) {
+		await navigateTo('/library/artists', { replace: true });
+	}
+});
 </script>
 
 <template>
@@ -34,6 +40,7 @@ if (error.value) {
 					>
 				</h3>
 				<AlbumQualityBadge :quality="album.quality" />
+				<AlbumMenu :album="album" />
 			</div>
 			<AlbumTracks :tracks="album.tracks" :caption="`Tracks of ${albumTitle(album.title)}`" />
 		</section>

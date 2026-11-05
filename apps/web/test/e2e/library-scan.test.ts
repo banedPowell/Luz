@@ -77,4 +77,33 @@ describe('library scan', async () => {
 			skipped: 1,
 		});
 	});
+
+	it('rescans only the tracks it is given, reading them again on request', async () => {
+		const page = await $fetch<LibraryPage<TrackSummary>>('/api/library/tracks');
+		const mp3 = page.items.find((track) => track.fileName === 'tone.mp3');
+		const scope = { kind: 'tracks', ids: [mp3?.id] };
+
+		expect(
+			await $fetch<ScanSummary>('/api/library/scan', { method: 'POST', body: { scope } }),
+		).toEqual({ added: 0, updated: 0, removed: 0, unchanged: 1, skipped: 0 });
+		expect(
+			await $fetch<ScanSummary>('/api/library/scan', {
+				method: 'POST',
+				body: { scope, force: true },
+			}),
+		).toEqual({ added: 0, updated: 1, removed: 0, unchanged: 0, skipped: 0 });
+	});
+
+	it('answers a malformed scan request with a 400', async () => {
+		const status = await $fetch('/api/library/scan', {
+			method: 'POST',
+			body: { scope: { kind: 'tracks', ids: [] } },
+		}).then(
+			() => 200,
+			(error: unknown) =>
+				error instanceof Error && 'statusCode' in error ? error.statusCode : 0,
+		);
+
+		expect(status).toBe(400);
+	});
 });
