@@ -20,6 +20,8 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 - **`@nuxt/test-utils` detects Vitest from the cwd** (the repo root): keep `vitest: catalog:` in the root devDependencies, or it falls back to `vitest/environments`, which Vitest 5 does not export.
 - **Nuxt tests run from the root** need `environmentOptions.nuxt.rootDir` pointing to `apps/web` ("Cannot resolve module @nuxt/kit" otherwise).
 - **Nuxt UI components with tooltips or overlays** need the `UApp` provider: mount them inside a `UApp` in tests, or `UTooltip` crashes ("reading 'text' of undefined").
+- **`mountSuspended` never unmounts by itself**: a mounted page keeps following the shared router, so every later test renders it again and a file slows down test after test until one times out in CI (`library-views.test.ts` went from 0.4 s to 5 s per test). Call `enableAutoUnmount(afterEach)` from `@vue/test-utils` in files that mount pages.
+- **Nuxt UI shortcuts (`defineShortcuts`) listen on `window` and check `document.activeElement`**: dispatch the `keydown` on `window`, and mount with `attachTo: document.body` when a test needs a field to hold the focus.
 - **`error.vue` cannot be imported in a test** (Oxlint `.vue` issue) and is not auto-imported: its content lives in `components/ErrorPage.vue`.
 - **happy-dom applies no CSS**: a label hidden with `display: none` keeps its text in a component test but loses its accessible name in a real browser. Check accessible names in the browser test.
 - **Unit tests under `test/unit` need the server tsconfig** (`nitro.typescript.tsConfig.include`), otherwise the pre-commit type-check fails with TS2591 on `node:*`.
