@@ -12,8 +12,4 @@ export default defineNitroPlugin(() => {
 	} else {
 		logger.info(`Data directory: ${config.dataDir}`);
 	}
-	// Only read here: the tools are never run before a feature needs them
-	logger.info(
-		`Tools: yt-dlp=${config.ytDlpPath}, ffmpeg=${config.ffmpegPath}, ffprobe=${config.ffprobePath}`,
-	);
 });

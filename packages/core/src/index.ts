@@ -7,3 +7,4 @@ export * from './scan.ts';
 export * from './search.ts';
 export * from './quality.ts';
 export * from './cover.ts';
+export * from './tools.ts';

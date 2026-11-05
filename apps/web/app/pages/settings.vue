@@ -139,5 +139,9 @@ async function save() {
 				<UButton type="submit" label="Save" :disabled="loadError" loading-auto />
 			</div>
 		</UForm>
+
+		<USeparator />
+
+		<ToolStatusList />
 	</div>
 </template>
