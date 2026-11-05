@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import type { AnalyzedKind, DownloadFailureReason, DownloadState, TrackTags } from '@luz/core';
 import { check, index, integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 /**
@@ -91,4 +92,53 @@ export const tracks = sqliteTable(
 		addedAtMs: integer('added_at_ms'),
 	},
 	(table) => [index('tracks_album_id').on(table.albumId)],
+);
+
+/**
+ * One download request: a URL and the items selected from its analysis (ADR 0007). Rows
+ * outlive a restart, so the queue and its history do too; state, dates and counts are
+ * queried, hence real columns.
+ */
+export const downloadJobs = sqliteTable(
+	'download_jobs',
+	{
+		id: integer('id').primaryKey(),
+		url: text('url').notNull(),
+		kind: text('kind').$type<AnalyzedKind>().notNull(),
+		title: text('title').notNull(),
+		state: text('state').$type<DownloadState>().notNull(),
+		// Set when the job failed as a whole ("interrupted")
+		errorReason: text('error_reason').$type<DownloadFailureReason>(),
+		createdAtMs: integer('created_at_ms').notNull(),
+		startedAtMs: integer('started_at_ms'),
+		finishedAtMs: integer('finished_at_ms'),
+		itemCount: integer('item_count').notNull(),
+		completedCount: integer('completed_count').notNull().default(0),
+		failedCount: integer('failed_count').notNull().default(0),
+	},
+	(table) => [index('download_jobs_state').on(table.state, table.createdAtMs)],
+);
+
+/** One file a job downloads, in the order of the analysis. */
+export const downloadItems = sqliteTable(
+	'download_items',
+	{
+		id: integer('id').primaryKey(),
+		jobId: integer('job_id')
+			.notNull()
+			.references(() => downloadJobs.id, { onDelete: 'cascade' }),
+		position: integer('position').notNull(),
+		sourceId: text('source_id').notNull(),
+		url: text('url'),
+		thumbnailUrl: text('thumbnail_url'),
+		title: text('title').notNull(),
+		// The TrackTags of the analysis, written to the file later (#84): an opaque payload
+		tags: text('tags', { mode: 'json' }).$type<TrackTags>().notNull(),
+		pathWithoutExtension: text('path_without_extension').notNull(),
+		state: text('state').$type<DownloadState>().notNull(),
+		errorReason: text('error_reason').$type<DownloadFailureReason>(),
+		// The capped tool output (appendToLog of @luz/core), as a JSON array of lines
+		log: text('log', { mode: 'json' }).$type<string[]>().notNull(),
+	},
+	(table) => [unique('download_items_job_position').on(table.jobId, table.position)],
 );

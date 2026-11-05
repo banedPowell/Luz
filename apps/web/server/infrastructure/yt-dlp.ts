@@ -17,9 +17,26 @@ export type YtDlpAnalysis =
 	| { ok: true; info: YtDlpInfo }
 	| { ok: false; reason: AnalysisErrorReason; details: string[] };
 
+export type YtDlpDownload =
+	| { ok: true }
+	| { ok: false; reason: AnalysisErrorReason }
+	| { ok: false; reason: 'aborted' };
+
+export interface DownloadOptions {
+	/** The job folder: yt-dlp writes there only, never into the library. */
+	directory: string;
+	/** The file name without extension; yt-dlp adds the extension of the format it picks. */
+	fileStem: string;
+	signal?: AbortSignal;
+	/** Every line yt-dlp prints, stdout and stderr, for the item log. */
+	onLine?: (line: string) => void;
+}
+
 export interface YtDlp {
 	/** Reads what a URL holds, without downloading anything. */
 	analyze(url: string, options?: { signal?: AbortSignal }): Promise<YtDlpAnalysis>;
+	/** Downloads the best audio of one item, as the site serves it (conversion is #84). */
+	download(url: string, options: DownloadOptions): Promise<YtDlpDownload>;
 }
 
 export function createYtDlp(
@@ -55,6 +72,45 @@ export function createYtDlp(
 				return { ok: false, reason: classifyYtDlpError(stderr), details: stderr };
 			}
 			return parseInfo(stdout.join('\n'), stderr);
+		},
+
+		async download(url, { directory, fileStem, signal, onLine }) {
+			const stderr: string[] = [];
+			const result = await runner.run(command, {
+				args: [
+					'--no-playlist',
+					'--newline',
+					'--format',
+					'bestaudio/best',
+					// --paths is no template, so a "%" in the data directory stays a "%"
+					'--paths',
+					directory,
+					'--output',
+					`${fileStem}.%(ext)s`,
+					'--',
+					url,
+				],
+				signal,
+				onStdoutLine: (line) => onLine?.(line),
+				onStderrLine: (line) => {
+					onLine?.(line);
+					stderr.push(line);
+					if (stderr.length > maxDetailLines) {
+						stderr.shift();
+					}
+				},
+			});
+			if (result.outcome === 'aborted') {
+				return { ok: false, reason: 'aborted' };
+			}
+			if (result.outcome === 'spawn-failed') {
+				onLine?.(result.message);
+				return { ok: false, reason: 'tool-unavailable' };
+			}
+			if (result.outcome !== 'exited' || result.exitCode !== 0) {
+				return { ok: false, reason: classifyYtDlpError(stderr) };
+			}
+			return { ok: true };
 		},
 	};
 }
