@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { Settings, ToolStatus } from '@luz/core';
+import { defaultSettings, type Settings, type ToolStatus } from '@luz/core';
 import { $fetch, fetch, setup, startServer, stopServer } from '@nuxt/test-utils/e2e';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { missingTools, sharedBuild } from './build';
@@ -22,33 +22,38 @@ describe('settings API', async () => {
 	});
 
 	it('returns the defaults on an empty data directory', async () => {
-		expect(await $fetch<Settings>('/api/settings')).toEqual({});
+		expect(await $fetch<Settings>('/api/settings')).toEqual(defaultSettings);
 	});
 
 	it('updates the settings and returns them', async () => {
 		const updated = await $fetch<Settings>('/api/settings', {
 			method: 'PATCH',
-			body: { musicLibraryPath: ' /music ' },
+			body: { musicLibraryPath: ' /music ', namingTemplate: ' {album}/{title} ' },
 		});
 
-		expect(updated).toEqual({ musicLibraryPath: '/music' });
+		expect(updated).toEqual({ musicLibraryPath: '/music', namingTemplate: '{album}/{title}' });
 		expect(await $fetch<Settings>('/api/settings')).toEqual(updated);
 	});
 
 	// The theme is a browser preference, not a setting (ADR 0006)
-	it.each([{ theme: 'dark' }, { musicLibraryPath: 'relative/music' }, { volume: 3 }])(
-		'rejects the invalid patch %j with a 400',
-		async (body) => {
-			const response = await fetch('/api/settings', {
-				method: 'PATCH',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(body),
-			});
+	it.each([
+		{ theme: 'dark' },
+		{ musicLibraryPath: 'relative/music' },
+		{ namingTemplate: '../{title}' },
+		{ volume: 3 },
+	])('rejects the invalid patch %j with a 400', async (body) => {
+		const response = await fetch('/api/settings', {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body),
+		});
 
-			expect(response.status).toBe(400);
-			expect(await $fetch<Settings>('/api/settings')).toEqual({ musicLibraryPath: '/music' });
-		},
-	);
+		expect(response.status).toBe(400);
+		expect(await $fetch<Settings>('/api/settings')).toEqual({
+			musicLibraryPath: '/music',
+			namingTemplate: '{album}/{title}',
+		});
+	});
 
 	it('leaves the theme to the color-mode cookie and never sets it', async () => {
 		const response = await fetch('/settings', { headers: { cookie: 'luz-color-mode=dark' } });
@@ -88,6 +93,8 @@ describe('settings API', async () => {
 		await stopServer();
 		await startServer({ env });
 
-		expect(await $fetch<Settings>('/api/settings')).toEqual({});
+		expect(await $fetch<Settings>('/api/settings')).toEqual({
+			namingTemplate: '{album}/{title}',
+		});
 	});
 });

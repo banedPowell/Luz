@@ -1,4 +1,10 @@
-import type { LibraryPage, ScanSummary, Settings, TrackSummary } from '@luz/core';
+import {
+	defaultSettings,
+	type LibraryPage,
+	type ScanSummary,
+	type Settings,
+	type TrackSummary,
+} from '@luz/core';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { NuxtPage, UApp } from '#components';
 import { createError } from 'h3';
@@ -53,7 +59,7 @@ function scanButton(wrapper: Awaited<ReturnType<typeof mountPage>>) {
 
 describe('library page', () => {
 	beforeEach(() => {
-		stored = { musicLibraryPath: '/music' };
+		stored = { ...defaultSettings, musicLibraryPath: '/music' };
 		scanResult = { added: 2, updated: 1, removed: 3, unchanged: 4, skipped: 1 };
 		gate = undefined;
 		indexed = [];
@@ -61,7 +67,7 @@ describe('library page', () => {
 	});
 
 	it('links to the settings when no folder is set', async () => {
-		stored = {};
+		stored = defaultSettings;
 
 		const wrapper = await mountPage();
 

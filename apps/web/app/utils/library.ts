@@ -1,13 +1,13 @@
-import type { TrackSummary } from '@luz/core';
+import { unknownAlbumName, unknownArtistName, type TrackSummary } from '@luz/core';
 
 // Untagged values are grouped under an "unknown" entry (see @luz/core); these name it
 
 export function albumTitle(title: string | null): string {
-	return title ?? 'Unknown album';
+	return title ?? unknownAlbumName;
 }
 
 export function artistName(name: string | null): string {
-	return name ?? 'Unknown artist';
+	return name ?? unknownArtistName;
 }
 
 export function trackTitle(track: Pick<TrackSummary, 'title' | 'fileName'>): string {

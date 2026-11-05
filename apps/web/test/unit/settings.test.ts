@@ -1,7 +1,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { defaultSettings } from '@luz/core';
+import { defaultNamingTemplate, defaultSettings } from '@luz/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { openDatabase, type Database } from '../../server/infrastructure/database/client';
@@ -38,7 +38,9 @@ describe('settings', () => {
 
 	it('writes the core defaults on first start', async () => {
 		expect(await getSettings(db)).toEqual(defaultSettings);
-		expect(await db.select().from(settings)).toEqual([{ id: 1, musicLibraryPath: null }]);
+		expect(await db.select().from(settings)).toEqual([
+			{ id: 1, musicLibraryPath: null, namingTemplate: defaultNamingTemplate },
+		]);
 	});
 
 	it('keeps stored settings when the defaults are ensured again', async () => {
@@ -46,25 +48,58 @@ describe('settings', () => {
 
 		await ensureSettings(db);
 
-		expect(await getSettings(db)).toEqual({ musicLibraryPath: '/music' });
+		expect(await getSettings(db)).toEqual({
+			musicLibraryPath: '/music',
+			namingTemplate: defaultNamingTemplate,
+		});
+	});
+
+	// A row written before the setting existed
+	it('fills in the default naming template of an older row', async () => {
+		await db.update(settings).set({ namingTemplate: null });
+
+		await ensureSettings(db);
+
+		expect(await getSettings(db)).toEqual(defaultSettings);
+	});
+
+	it('keeps a stored naming template when the defaults are ensured again', async () => {
+		await updateSettings(db, { namingTemplate: '{album}/{title}' });
+
+		await ensureSettings(db);
+
+		expect((await getSettings(db)).namingTemplate).toBe('{album}/{title}');
+	});
+
+	it('updates the naming template alone', async () => {
+		await updateSettings(db, { musicLibraryPath: '/music' });
+
+		expect(await updateSettings(db, { namingTemplate: '{title}' })).toEqual({
+			musicLibraryPath: '/music',
+			namingTemplate: '{title}',
+		});
 	});
 
 	it('updates the library path and returns the result', async () => {
 		expect(await updateSettings(db, { musicLibraryPath: '/music' })).toEqual({
 			musicLibraryPath: '/music',
+			namingTemplate: defaultNamingTemplate,
 		});
 	});
 
 	it('clears the library path with null', async () => {
 		await updateSettings(db, { musicLibraryPath: '/music' });
 
-		expect(await updateSettings(db, { musicLibraryPath: null })).toEqual({});
+		expect(await updateSettings(db, { musicLibraryPath: null })).toEqual(defaultSettings);
 	});
 
 	it('returns the current settings for an empty patch', async () => {
 		await updateSettings(db, { musicLibraryPath: '/music' });
 
-		expect(await updateSettings(db, {})).toEqual({ musicLibraryPath: '/music' });
+		expect(await updateSettings(db, {})).toEqual({
+			musicLibraryPath: '/music',
+			namingTemplate: defaultNamingTemplate,
+		});
 	});
 
 	it('survives closing and reopening the database', async () => {
@@ -73,7 +108,10 @@ describe('settings', () => {
 
 		db = await start();
 
-		expect(await getSettings(db)).toEqual({ musicLibraryPath: 'D:\\Music' });
+		expect(await getSettings(db)).toEqual({
+			namingTemplate: defaultNamingTemplate,
+			musicLibraryPath: 'D:\\Music',
+		});
 	});
 
 	it('fails clearly when the row is missing', async () => {

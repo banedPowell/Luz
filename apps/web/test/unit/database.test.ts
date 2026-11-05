@@ -36,6 +36,7 @@ describe('loadMigrations', () => {
 			'0003_add_track_audio',
 			'0004_drop_settings_theme',
 			'0005_add_track_added_at',
+			'0006_add_settings_naming_template',
 		]);
 		expect(migrations[0]?.statements[0]).toMatch(/^CREATE TABLE `settings`/);
 		expect(migrations[0]?.hash).toMatch(/^[\da-f]{64}$/);
@@ -66,6 +67,8 @@ describe('loadMigrations', () => {
 				'1793824314139:5f43ff380676813389f8cf3a1f8342716efbf2e1f6b89ae9c23f3f575f115246',
 			'0005_add_track_added_at':
 				'1793866538269:5d6abd820ee2da5083dffb963ef0b360ed74759c7335668f810359047edd0974',
+			'0006_add_settings_naming_template':
+				'1793880489126:9aaaad6a2042c70588db4ac854ab369cb55b2f50044f936b58192996624b04fe',
 		});
 	});
 
@@ -146,6 +149,7 @@ describe('database', () => {
 			'0003_add_track_audio',
 			'0004_drop_settings_theme',
 			'0005_add_track_added_at',
+			'0006_add_settings_naming_template',
 		]);
 		expect(await migrate()).toEqual([]);
 	});
@@ -197,7 +201,7 @@ describe('database', () => {
 			await db.update(settings).set({ musicLibraryPath: '/music' });
 
 			expect(await db.select().from(settings)).toEqual([
-				{ id: 1, musicLibraryPath: '/music' },
+				{ id: 1, musicLibraryPath: '/music', namingTemplate: null },
 			]);
 		});
 
@@ -225,11 +229,32 @@ describe('database', () => {
 		expect(applied.map((migration) => migration.tag)).toEqual([
 			'0004_drop_settings_theme',
 			'0005_add_track_added_at',
+			'0006_add_settings_naming_template',
 		]);
-		expect(await db.select().from(settings)).toEqual([{ id: 1, musicLibraryPath: '/music' }]);
+		expect(await db.select().from(settings)).toEqual([
+			{ id: 1, musicLibraryPath: '/music', namingTemplate: null },
+		]);
 		expect(await failureOf('INSERT INTO settings (id) VALUES (2)')).toMatch(
 			/CHECK constraint failed: settings_single_row/,
 		);
+	});
+
+	// ensureSettings() writes the default at startup; the migration only adds the column
+	it('keeps the library path when the naming template column is added', async () => {
+		const migrations = await loadMigrations(readMigrationsFolder);
+		await applyMigrations(
+			db.$client,
+			migrations.filter((migration) => migration.tag < '0006_add_settings_naming_template'),
+		);
+		await db.$client.execute(
+			"INSERT INTO settings (id, music_library_path) VALUES (1, '/music')",
+		);
+
+		await applyMigrations(db.$client, migrations);
+
+		expect(await db.select().from(settings)).toEqual([
+			{ id: 1, musicLibraryPath: '/music', namingTemplate: null },
+		]);
 	});
 
 	// When a track indexed earlier was added is unknown: its file's modification time stands in
