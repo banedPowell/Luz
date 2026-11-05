@@ -322,23 +322,27 @@ async function download() {
 				</ul>
 			</template>
 
-			<div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-				<UFormField label="Format">
-					<USelect
-						v-model="outputFormat"
-						:items="outputFormatItems"
-						class="w-full sm:w-56"
-					/>
-				</UFormField>
+			<!-- Always on screen, like the library's selection bar: a long playlist would
+			     otherwise put Download a long scroll away -->
+			<FloatingBar v-if="items.length > 0" label="Download">
+				<p class="shrink-0 text-sm font-medium text-highlighted" aria-live="polite">
+					{{ selected.size }} selected
+				</p>
+				<USelect
+					v-model="outputFormat"
+					:items="outputFormatItems"
+					aria-label="Format"
+					class="ms-auto h-10 w-40 min-w-0 md:h-8 sm:w-56"
+				/>
 				<UButton
 					label="Download"
 					icon="i-pixelarticons-download"
 					:loading="downloading"
 					:disabled="selected.size === 0"
-					class="justify-center"
+					class="h-10 shrink-0 justify-center md:h-8"
 					@click="download"
 				/>
-			</div>
+			</FloatingBar>
 		</section>
 	</div>
 </template>

@@ -65,5 +65,9 @@ export default defineAppConfig({
 		inputDate: subtleField,
 		inputTime: subtleField,
 		pinInput: subtleField,
+		// rounded-sm is the full --ui-radius (8 px): on a 16 px box it reads as a radio button
+		checkbox: {
+			slots: { base: 'rounded-xs', indicator: 'rounded-xs' },
+		},
 	},
 });

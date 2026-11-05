@@ -256,6 +256,10 @@ describe('downloads page', () => {
 
 		const wrapper = await analysed();
 
+		// The bar stays on screen with nothing checked, so Download never has to be found again
+		const bar = wrapper.find('section[aria-label="Download"]');
+		expect(bar.exists()).toBe(true);
+		expect(bar.text()).toContain('0 selected');
 		expect(button(wrapper, 'Download').attributes('disabled')).toBeDefined();
 	});
 
