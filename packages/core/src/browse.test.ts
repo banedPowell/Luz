@@ -5,6 +5,7 @@ import {
 	artistListQuerySchema,
 	formatDuration,
 	libraryIdSchema,
+	listViewQuerySchema,
 	maxPageSize,
 	trackListQuerySchema,
 } from './browse.ts';
@@ -78,5 +79,21 @@ describe('formatDuration', () => {
 
 	it('keeps an unknown duration unknown', () => {
 		expect(formatDuration(null)).toBeNull();
+	});
+});
+
+describe('list view query schema', () => {
+	it('defaults to the table', () => {
+		expect(listViewQuerySchema.parse({})).toEqual({ view: 'table' });
+	});
+
+	it('reads the grid from the query, ignoring the other keys', () => {
+		expect(listViewQuerySchema.parse({ view: 'grid', sort: 'year', page: '2' })).toEqual({
+			view: 'grid',
+		});
+	});
+
+	it.each(['cards', '', ['grid', 'table']])('falls back to the table for %j', (view) => {
+		expect(listViewQuerySchema.parse({ view })).toEqual({ view: 'table' });
 	});
 });

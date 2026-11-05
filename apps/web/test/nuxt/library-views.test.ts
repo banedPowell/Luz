@@ -330,6 +330,109 @@ describe('library views', () => {
 		expect(row).not.toContain('Mixed');
 	});
 
+	it('offers a table and grid switch on the album list, the table first', async () => {
+		const wrapper = await mountAt('/library/albums?sort=year&page=2');
+
+		const group = wrapper.find('[role="group"][aria-label="View"]');
+		const table = group.find('a[aria-label="Table view"]');
+		const grid = group.find('a[aria-label="Grid view"]');
+		expect(table.attributes('aria-current')).toBe('true');
+		expect(grid.attributes('aria-current')).toBeUndefined();
+		// Switching keeps the sort and the page
+		expect(grid.attributes('href')).toBe('/library/albums?sort=year&page=2&view=grid');
+		expect(wrapper.find('table').exists()).toBe(true);
+	});
+
+	it.each(['/library', '/library/artists'])('offers no view switch on %s', async (route) => {
+		const wrapper = await mountAt(route);
+
+		expect(wrapper.find('[aria-label="View"]').exists()).toBe(false);
+	});
+
+	it('shows albums as a grid of covers with title, artist and quality', async () => {
+		const wrapper = await mountAt('/library/albums?view=grid');
+
+		expect(wrapper.find('table').exists()).toBe(false);
+		const cards = wrapper.findAll('ul[aria-label="Albums"] > li');
+		expect(cards).toHaveLength(2);
+		expect(cards[0]?.find('[data-color]').exists()).toBe(true);
+		expect(cards[0]?.find('a[href="/library/albums/10"][title="Alpha One"]').text()).toBe(
+			'Alpha One',
+		);
+		expect(cards[0]?.find('a[href="/library/artists/1"]').text()).toBe('Alpha');
+		expect(cards[0]?.text()).toContain('Lossless');
+		expect(cards[1]?.text()).toContain('Unknown album');
+		expect(cards[1]?.text()).toContain('Unknown artist');
+		expect(cards[1]?.text()).toContain('Mixed');
+		const table = wrapper.find('a[aria-label="Table view"]');
+		expect(table.attributes('aria-current')).toBeUndefined();
+		// The default view stays out of the URL
+		expect(table.attributes('href')).toBe('/library/albums');
+	});
+
+	it('falls back to the table when the URL holds an unknown view', async () => {
+		const wrapper = await mountAt('/library/albums?view=cards');
+
+		expect(wrapper.find('table').exists()).toBe(true);
+	});
+
+	it('paginates the grid with links that keep the view and the sort', async () => {
+		albumPage = { ...albumPage, total: 120 };
+
+		const wrapper = await mountAt('/library/albums?view=grid&sort=artist');
+
+		expect(
+			wrapper.find('a[href="/library/albums?view=grid&sort=artist&page=3"]').exists(),
+		).toBe(true);
+	});
+
+	it('shows the same empty state in the grid', async () => {
+		albumPage = pageOf([]);
+
+		const wrapper = await mountAt('/library/albums?view=grid');
+
+		expect(wrapper.text()).toContain('Your library is empty');
+		expect(wrapper.find('ul[aria-label="Albums"]').exists()).toBe(false);
+	});
+
+	it('switches the view with the v key, but not while typing', async () => {
+		await useSettings().load();
+		// Attached, so the search field can take the focus
+		const wrapper = await mountSuspended(LibraryPages, {
+			route: '/library/albums?sort=year',
+			attachTo: document.body,
+		});
+		const router = useRouter();
+
+		const search = wrapper.find('input[type="search"]').element;
+		if (!(search instanceof HTMLInputElement)) {
+			throw new Error('No search field');
+		}
+		// Nuxt UI looks at the focused element, not at the event target
+		search.focus();
+		expect(document.activeElement).toBe(search);
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v' }));
+		await nextTick();
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(router.currentRoute.value.fullPath).toBe('/library/albums?sort=year');
+		search.blur();
+		await nextTick();
+
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v' }));
+		await vi.waitFor(() => {
+			expect(router.currentRoute.value.fullPath).toBe('/library/albums?sort=year&view=grid');
+		});
+		await vi.waitFor(() => {
+			expect(wrapper.find('ul[aria-label="Albums"]').exists()).toBe(true);
+		});
+
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'v' }));
+		await vi.waitFor(() => {
+			expect(router.currentRoute.value.fullPath).toBe('/library/albums?sort=year');
+		});
+		wrapper.unmount();
+	});
+
 	it('lists artists with their counts', async () => {
 		const wrapper = await mountAt('/library/artists');
 

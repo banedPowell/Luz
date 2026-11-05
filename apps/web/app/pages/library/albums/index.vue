@@ -5,6 +5,7 @@ import type { TableColumn } from '@nuxt/ui';
 const { query } = useListQuery(albumListQuerySchema);
 const { data } = await useFetch('/api/library/albums', { query });
 const { sorting, sortable } = useSortableHeaders<AlbumSummary>(query);
+const { view } = useListView();
 
 const sortOptions = [
 	{ label: 'Title', value: 'title' },
@@ -46,8 +47,45 @@ const columns: TableColumn<AlbumSummary>[] = [
 		:sort="query.sort"
 		:order="query.order"
 		:sort-options="[...sortOptions]"
+		view-switch
 	>
+		<!-- The sort selector replaces the column headers here -->
+		<ul
+			v-if="view === 'grid'"
+			aria-label="Albums"
+			class="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+		>
+			<li v-for="album in data.items" :key="album.id" class="flex min-w-0 flex-col gap-2">
+				<!-- The cover repeats the title link for the pointer; the keyboard stops on the title only -->
+				<NuxtLink
+					:to="`/library/albums/${album.id}`"
+					tabindex="-1"
+					aria-hidden="true"
+					class="block rounded-sm transition-opacity hover:opacity-80"
+				>
+					<AlbumCover :album="album.title" :artist="album.artist.name" class="w-full" />
+				</NuxtLink>
+				<div class="flex min-w-0 flex-col">
+					<ULink
+						:to="`/library/albums/${album.id}`"
+						:title="albumTitle(album.title)"
+						class="truncate font-medium"
+					>
+						{{ albumTitle(album.title) }}
+					</ULink>
+					<ULink
+						:to="`/library/artists/${album.artist.id}`"
+						:title="artistName(album.artist.name)"
+						class="truncate text-sm text-muted"
+					>
+						{{ artistName(album.artist.name) }}
+					</ULink>
+				</div>
+				<AlbumQualityBadge :quality="album.quality" class="self-start" />
+			</li>
+		</ul>
 		<UTable
+			v-else
 			:data="data.items"
 			:columns="columns"
 			:sorting="sorting"
