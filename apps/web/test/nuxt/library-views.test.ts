@@ -315,6 +315,27 @@ describe('library views', () => {
 		expect(wrapper.find('a[href="/library/artists/2"]').text()).toBe('Unknown artist');
 	});
 
+	it('truncates album titles and artists so the table fits the screen, the full text on hover', async () => {
+		const wrapper = await mountAt('/library/albums');
+
+		const row = wrapper.find('tbody tr');
+		const title = row.find('a[href="/library/albums/10"]');
+		expect(title.attributes('title')).toBe('Alpha One');
+		expect(title.classes()).toContain('truncate');
+		// The cells shrink to the room left instead of widening the table
+		const cells = row.findAll('td');
+		expect(cells[0]?.classes()).toContain('max-w-0');
+		expect(cells[1]?.classes()).toEqual(expect.arrayContaining(['max-w-0', 'hidden']));
+		// Under the title on narrow screens, in its own column from sm up
+		const artists = row.findAll('a[href="/library/artists/1"]');
+		expect(artists.map((link) => link.classes())).toEqual([
+			expect.arrayContaining(['truncate', 'sm:hidden']),
+			expect.arrayContaining(['truncate']),
+		]);
+		expect(artists.map((link) => link.attributes('title'))).toEqual(['Alpha', 'Alpha']);
+		expect(wrapper.find('thead th:nth-child(2)').classes()).toContain('hidden');
+	});
+
 	it('shows the quality of each album in the list', async () => {
 		const wrapper = await mountAt('/library/albums');
 

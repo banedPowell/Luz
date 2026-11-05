@@ -14,8 +14,19 @@ const sortOptions = [
 ] as const;
 
 const columns: TableColumn<AlbumSummary>[] = [
-	{ id: 'title', ...sortable('Album') },
-	{ id: 'artist', ...sortable('Artist') },
+	// max-w-0 lets the title and artist cells shrink to the room the other columns leave,
+	// truncated, instead of stretching the table past the screen; the widths share that room
+	{
+		id: 'title',
+		...sortable('Album'),
+		meta: { class: { td: 'w-full max-w-0 sm:w-3/5' } },
+	},
+	{
+		id: 'artist',
+		...sortable('Artist'),
+		// On narrow screens the artist moves under the title, so the row fits without scrolling
+		meta: { class: { th: 'hidden sm:table-cell', td: 'hidden w-2/5 max-w-0 sm:table-cell' } },
+	},
 	{ id: 'year', ...sortable('Year') },
 	{
 		id: 'quality',
@@ -97,15 +108,33 @@ const columns: TableColumn<AlbumSummary>[] = [
 					<AlbumCover
 						:album="row.original.title"
 						:artist="row.original.artist.name"
-						class="size-8"
+						class="size-8 shrink-0"
 					/>
-					<ULink :to="`/library/albums/${row.original.id}`" class="font-medium">
-						{{ albumTitle(row.original.title) }}
-					</ULink>
+					<!-- Truncated like TrackTitle; a hover shows what the cell cuts off -->
+					<div class="flex min-w-0 flex-col">
+						<ULink
+							:to="`/library/albums/${row.original.id}`"
+							:title="albumTitle(row.original.title)"
+							class="truncate font-medium"
+						>
+							{{ albumTitle(row.original.title) }}
+						</ULink>
+						<ULink
+							:to="`/library/artists/${row.original.artist.id}`"
+							:title="artistName(row.original.artist.name)"
+							class="truncate text-sm text-muted sm:hidden"
+						>
+							{{ artistName(row.original.artist.name) }}
+						</ULink>
+					</div>
 				</div>
 			</template>
 			<template #artist-cell="{ row }">
-				<ULink :to="`/library/artists/${row.original.artist.id}`">
+				<ULink
+					:to="`/library/artists/${row.original.artist.id}`"
+					:title="artistName(row.original.artist.name)"
+					class="block truncate"
+				>
 					{{ artistName(row.original.artist.name) }}
 				</ULink>
 			</template>
