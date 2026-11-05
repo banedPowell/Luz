@@ -12,6 +12,7 @@ import {
 	type ArtistDetail,
 	type ArtistSortKey,
 	type ArtistSummary,
+	type ScanScope,
 	type SortOrder,
 	type TrackSortKey,
 	type TrackAudio,
@@ -164,7 +165,11 @@ export interface IndexedFile {
 	audioKnown: boolean;
 }
 
-export async function listIndexedFiles(db: Database): Promise<IndexedFile[]> {
+/** The indexed files of the whole library, or of the tracks of a scan scope only. */
+export async function listIndexedFiles(
+	db: Database,
+	scope: ScanScope = { kind: 'library' },
+): Promise<IndexedFile[]> {
 	const rows = await db
 		.select({
 			path: tracks.path,
@@ -172,7 +177,14 @@ export async function listIndexedFiles(db: Database): Promise<IndexedFile[]> {
 			modifiedAtMs: tracks.modifiedAtMs,
 			lossless: tracks.lossless,
 		})
-		.from(tracks);
+		.from(tracks)
+		.where(
+			scope.kind === 'albums'
+				? inArray(tracks.albumId, scope.ids)
+				: scope.kind === 'tracks'
+					? inArray(tracks.id, scope.ids)
+					: undefined,
+		);
 	return rows.map(({ lossless, ...file }) => ({ ...file, audioKnown: lossless !== null }));
 }
 

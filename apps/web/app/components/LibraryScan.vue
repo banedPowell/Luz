@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ScanFailure } from '~/composables/useLibraryScan';
+import { scanFailureMessages } from '~/composables/useLibraryScan';
 
 defineProps<{
 	musicLibraryPath: string;
@@ -7,14 +7,6 @@ defineProps<{
 
 const appConfig = useAppConfig();
 const { scanning, failure, scan } = useLibraryScan();
-
-const failureMessages: Record<ScanFailure, string> = {
-	'library-path-unset': 'No music library folder is set.',
-	'library-path-missing':
-		'The music library folder does not exist. Check the path in the settings.',
-	'scan-running': 'A scan is already running. Try again once it is done.',
-	unknown: 'The scan failed. Try again later.',
-};
 </script>
 
 <template>
@@ -40,7 +32,7 @@ const failureMessages: Record<ScanFailure, string> = {
 		<UAlert
 			v-else-if="failure"
 			title="Could not scan the library"
-			:description="failureMessages[failure]"
+			:description="scanFailureMessages[failure]"
 			color="error"
 			variant="subtle"
 			:icon="appConfig.ui.icons.error"

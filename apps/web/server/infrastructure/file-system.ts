@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { opendir, stat } from 'node:fs/promises';
+import { lstat, opendir, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -77,5 +77,20 @@ async function* walk(directory: string, isRoot: boolean): AsyncGenerator<FileEnt
 				// Removed or locked between the listing and now
 			}
 		}
+	}
+}
+
+/**
+ * The size and modification time of a regular file, or `undefined` when there is none at
+ * this path. Like the walk, it does not follow a symbolic link: a link is no file here.
+ */
+export async function statFile(filePath: string): Promise<FileEntry | undefined> {
+	try {
+		const stats = await lstat(filePath);
+		return stats.isFile()
+			? { path: filePath, size: stats.size, modifiedAtMs: Math.trunc(stats.mtimeMs) }
+			: undefined;
+	} catch {
+		return undefined;
 	}
 }

@@ -10,7 +10,7 @@ import type {
 import { cassetteColor } from '@luz/core';
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime';
 import { NuxtPage, UApp } from '#components';
-import { createError, getQuery } from 'h3';
+import { createError, getQuery, readBody } from 'h3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, nextTick } from 'vue';
 
@@ -55,6 +55,10 @@ let detail: TrackDetail | undefined;
 // Set to make the track endpoint fail with this message
 let detailFailure: string | undefined;
 const queries: Record<string, unknown>[] = [];
+const scanRequests: unknown[] = [];
+let scanRefused = false;
+// Set to make the album page find no album, as after a rescan that emptied it
+let albumGone = false;
 
 registerEndpoint('/api/settings', {
 	method: 'GET',
@@ -69,7 +73,25 @@ registerEndpoint('/api/library/tracks', {
 });
 registerEndpoint('/api/library/albums', { method: 'GET', handler: () => albumPage });
 registerEndpoint('/api/library/artists', { method: 'GET', handler: () => artistPage });
-registerEndpoint('/api/library/albums/10', { method: 'GET', handler: () => album });
+registerEndpoint('/api/library/albums/10', {
+	method: 'GET',
+	handler: () => {
+		if (albumGone) {
+			throw createError({ statusCode: 404, message: 'No such album' });
+		}
+		return album;
+	},
+});
+registerEndpoint('/api/library/scan', {
+	method: 'POST',
+	handler: async (event) => {
+		scanRequests.push(await readBody(event));
+		if (scanRefused) {
+			throw createError({ statusCode: 409, data: { reason: 'scan-running' } });
+		}
+		return { added: 0, updated: 2, removed: 1, unchanged: 0, skipped: 0 };
+	},
+});
 registerEndpoint('/api/library/artists/1', { method: 'GET', handler: () => artist });
 registerEndpoint('/api/library/tracks/1', {
 	method: 'GET',
@@ -142,6 +164,9 @@ describe('library views', () => {
 	beforeEach(() => {
 		clearNuxtState();
 		queries.length = 0;
+		scanRequests.length = 0;
+		scanRefused = false;
+		albumGone = false;
 		trackPage = pageOf([
 			track(1),
 			track(2, {
@@ -508,6 +533,56 @@ describe('library views', () => {
 			expect(writeText).toHaveBeenCalledWith('/music/Alpha/Alpha One/1.flac');
 		});
 		writeText.mockRestore();
+	});
+
+	it('rescans a track from its row menu, reading it again, and sums it up', async () => {
+		const wrapper = await mountAt('/library');
+
+		await chooseFromMenu(wrapper, 'Track 1', 'Rescan');
+
+		await vi.waitFor(() => {
+			expect(document.body.textContent).toContain('Rescan complete');
+		});
+		expect(document.body.textContent).toContain('2 updated, 1 removed');
+		expect(scanRequests).toEqual([{ scope: { kind: 'tracks', ids: [1] }, force: true }]);
+	});
+
+	it.each([
+		['the album table', '/library/albums'],
+		['the album grid', '/library/albums?view=grid'],
+		['the album page', '/library/albums/10'],
+		['the artist page', '/library/artists/1'],
+	])('rescans an album from its row menu in %s', async (_, route) => {
+		const wrapper = await mountAt(route);
+
+		await chooseFromMenu(wrapper, 'Alpha One', 'Rescan');
+
+		await vi.waitFor(() => {
+			expect(scanRequests).toEqual([{ scope: { kind: 'albums', ids: [10] }, force: true }]);
+		});
+	});
+
+	it('says when a rescan is refused', async () => {
+		scanRefused = true;
+		const wrapper = await mountAt('/library/albums');
+
+		await chooseFromMenu(wrapper, 'Alpha One', 'Rescan');
+
+		await vi.waitFor(() => {
+			expect(document.body.textContent).toContain('Could not rescan');
+		});
+		expect(document.body.textContent).toContain('A scan is already running');
+	});
+
+	it('returns to the album list when a rescan leaves the album page without its album', async () => {
+		const wrapper = await mountAt('/library/albums/10');
+		albumGone = true;
+
+		await chooseFromMenu(wrapper, 'Alpha One', 'Rescan');
+
+		await vi.waitFor(() => {
+			expect(useRoute().fullPath).toBe('/library/albums');
+		});
 	});
 
 	it('says when the clipboard refuses a path', async () => {

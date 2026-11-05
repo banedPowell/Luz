@@ -1,10 +1,14 @@
+import { scanRequestSchema } from '@luz/core';
+
 import { createTagReader } from '../../infrastructure/tag-reader';
 import { ScanError, scanLibrary } from '../../services/library-scan';
 
-// A scan that cannot start is a 409 whose data names the reason, for the page to explain
-export default defineEventHandler(async () => {
+// No body scans the whole library; a body that does not match the schema is a 400. A scan
+// that cannot start is a 409 whose data names the reason, for the page to explain
+export default defineEventHandler(async (event) => {
+	const request = await readValidatedBody(event, (body) => scanRequestSchema.parse(body ?? {}));
 	try {
-		return await scanLibrary(await useDatabase(), createTagReader());
+		return await scanLibrary(await useDatabase(), createTagReader(), request);
 	} catch (error) {
 		if (error instanceof ScanError) {
 			throw createError({
