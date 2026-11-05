@@ -5,6 +5,7 @@ import {
 	renameSync,
 	rmSync,
 	statSync,
+	symlinkSync,
 	utimesSync,
 	writeFileSync,
 } from 'node:fs';
@@ -30,7 +31,7 @@ import {
 	writeSettings,
 } from '../../server/infrastructure/database/settings-repository';
 import type { TagReader, TagReadResult } from '../../server/infrastructure/tag-reader';
-import { ScanError, scanLibrary } from '../../server/services/library-scan';
+import { indexLibraryFiles, ScanError, scanLibrary } from '../../server/services/library-scan';
 import { audioOf } from './support/audio';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
@@ -87,6 +88,10 @@ async function forgetCodecs(db: Database) {
 		bitDepth: null,
 		channels: null,
 	});
+}
+
+function files(...paths: string[]): { scope: ScanScope } {
+	return { scope: { kind: 'files', paths } };
 }
 
 async function scanError(promise: Promise<unknown>): Promise<ScanError> {
@@ -554,6 +559,94 @@ describe('scanLibrary', () => {
 
 		reader.gate = undefined;
 		expect(await scanLibrary(db, reader)).toEqual(summary({ unchanged: 1 }));
+	});
+
+	describe('with a files scope', () => {
+		it('adds the files it is given, and only them', async () => {
+			const added = file('Band/Album/01.mp3');
+			file('Band/Album/02.mp3');
+
+			expect(await scanLibrary(db, reader, files(added))).toEqual(summary({ added: 1 }));
+			expect(reader.reads).toEqual([added]);
+			expect(await findTrackByPath(db, added)).toMatchObject({ title: '01.mp3' });
+			// Both kinds of path name the same file, which is read once
+			reader.reads = [];
+			expect(
+				await scanLibrary(db, reader, {
+					...files('Band/Album/02.mp3', 'Band/Album/02.mp3'),
+				}),
+			).toEqual(summary({ added: 1 }));
+			expect(reader.reads).toEqual([path.join(music, 'Band/Album/02.mp3')]);
+		});
+
+		it('updates a changed file and leaves an unchanged one', async () => {
+			const changed = file('Album/01.mp3');
+			const same = file('Album/02.mp3');
+			await indexedScan();
+			retag(changed);
+
+			expect(await scanLibrary(db, reader, files(changed, same))).toEqual(
+				summary({ updated: 1, unchanged: 1 }),
+			);
+			expect(await findTrackByPath(db, changed)).toMatchObject({ title: 'Retagged' });
+		});
+
+		it('skips and counts a path outside the library, missing or not audio', async () => {
+			const outside = file('Album/01.mp3', 'audio', otherMusic);
+			const text = file('Album/notes.txt');
+			const hidden = file('.hidden/01.mp3');
+
+			expect(
+				await scanLibrary(
+					db,
+					reader,
+					files(outside, text, hidden, path.join(music, 'gone.mp3'), '../escape.mp3'),
+				),
+			).toEqual(summary({ skipped: 5 }));
+			expect(reader.reads).toEqual([]);
+			expect(await findTrackByPath(db, outside)).toBeUndefined();
+		});
+
+		it('never follows a link out of the library', async () => {
+			file('Album/01.mp3', 'audio', otherMusic);
+			// A junction needs no privilege on Windows, and is a plain link elsewhere
+			symlinkSync(otherMusic, path.join(music, 'Linked'), 'junction');
+
+			expect(
+				await scanLibrary(db, reader, files(path.join(music, 'Linked', 'Album', '01.mp3'))),
+			).toEqual(summary({ skipped: 1 }));
+			expect(reader.reads).toEqual([]);
+		});
+
+		it('never removes a track, even one whose file is gone or unreadable', async () => {
+			const gone = file('Album/01.mp3');
+			const broken = file('Album/02.mp3');
+			await indexedScan();
+			rmSync(gone);
+			writeFileSync(broken, 'now broken');
+			reader.unreadable.add(broken);
+
+			expect(await scanLibrary(db, reader, files(gone, broken))).toEqual(
+				summary({ skipped: 2 }),
+			);
+			expect(await findTrackByPath(db, gone)).toBeDefined();
+			expect(await findTrackByPath(db, broken)).toBeDefined();
+		});
+
+		it('waits for a running scan before indexing, rather than being refused', async () => {
+			const first = file('Album/01.mp3');
+			const second = file('Album/02.mp3');
+			const { promise, resolve: release } = Promise.withResolvers<void>();
+			reader.gate = promise;
+
+			const running = scanLibrary(db, reader);
+			const waiting = indexLibraryFiles(db, reader, [second]);
+			release();
+
+			expect(await running).toEqual(summary({ added: 2 }));
+			expect(await waiting).toEqual(summary({ unchanged: 1 }));
+			expect(await findTrackByPath(db, first)).toBeDefined();
+		});
 	});
 
 	it('refuses a scoped scan while a full one runs', async () => {

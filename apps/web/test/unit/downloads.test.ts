@@ -20,7 +20,12 @@ import {
 	listDownloadJobs,
 	startDownloadJob,
 } from '../../server/infrastructure/database/download-repository';
+import { listIndexedFiles } from '../../server/infrastructure/database/library-repository';
 import { applyMigrations, loadMigrations } from '../../server/infrastructure/database/migrations';
+import {
+	ensureSettings,
+	writeSettings,
+} from '../../server/infrastructure/database/settings-repository';
 import type {
 	Conversion,
 	Ffmpeg,
@@ -30,7 +35,9 @@ import type {
 import {
 	createDirectory,
 	listFileNames,
+	moveIntoLibrary,
 	removeDirectory,
+	type MoveOutcome,
 } from '../../server/infrastructure/file-system';
 import {
 	createProcessRunner,
@@ -51,6 +58,7 @@ import {
 	DownloadRequestError,
 	type DownloadQueue,
 } from '../../server/services/downloads';
+import { indexLibraryFiles } from '../../server/services/library-scan';
 import { readMigrationsFolder, removeWhenReleased } from './support/database';
 
 const playlistUrl = 'https://example.com/playlist';
@@ -162,7 +170,10 @@ class FakeFfmpeg implements Ffmpeg {
 }
 
 let dataDir: string;
+let library: string;
 let db: Database;
+// Stands in for the move into the library; the real one unless a test replaces it
+let move: (source: string, target: string) => Promise<MoveOutcome>;
 let ytDlp: FakeYtDlp;
 let ffmpeg: FakeFfmpeg;
 // The codec the fake tag reader finds in every download
@@ -194,7 +205,7 @@ function analysis(): AnalysisDependencies {
 	return {
 		ytDlp,
 		ytDlpStatus: available,
-		settings: { ...defaultSettings, musicLibraryPath: path.join(dataDir, 'library') },
+		settings: { ...defaultSettings, musicLibraryPath: library },
 		listFileNames: async () => [],
 	};
 }
@@ -209,6 +220,8 @@ function newQueue(): DownloadQueue {
 		listFileNames,
 		createDirectory,
 		removeDirectory,
+		moveIntoLibrary: (source, target) => move(source, target),
+		indexLibraryFiles: (paths) => indexLibraryFiles(db, tagReader, paths, () => clock),
 		now: () => clock,
 		events: { emit: (event) => emitted.push(event) },
 		logger: { info: () => undefined, error: () => undefined },
@@ -231,6 +244,11 @@ beforeEach(async () => {
 	dataDir = mkdtempSync(path.join(tmpdir(), 'luz-downloads-'));
 	db = openDatabase(dataDir);
 	await applyMigrations(db.$client, await loadMigrations(readMigrationsFolder));
+	library = path.join(dataDir, 'library');
+	await mkdir(library);
+	await ensureSettings(db);
+	await writeSettings(db, { musicLibraryPath: library });
+	move = moveIntoLibrary;
 	ytDlp = new FakeYtDlp();
 	ffmpeg = new FakeFfmpeg();
 	downloadedCodec = 'Opus';
@@ -279,7 +297,7 @@ describe('createDownload', () => {
 });
 
 describe('download queue', () => {
-	it('downloads the items one by one into the job folder', async () => {
+	it('downloads the items one by one, then moves them into the library', async () => {
 		const job = await queueJob();
 		await queue.wake();
 
@@ -298,12 +316,85 @@ describe('download queue', () => {
 				`[download] Destination: ${item.id}.webm`,
 				'[download] 100% of 5.00KiB',
 			]);
+			expect(item.step).toBe('added');
 			expect(
-				existsSync(
-					path.join(dataDir, 'downloads', `${job.id}`, `${item.id}.converted.opus`),
-				),
-			).toBe(true);
+				readFileSync(path.join(library, `${item.pathWithoutExtension}.opus`), 'utf8'),
+			).toBe('converted');
 		}
+		// Nothing is left behind once the job ends
+		expect(existsSync(path.join(dataDir, 'downloads', `${job.id}`))).toBe(false);
+	});
+
+	it('indexes the files it adds, like a scan', async () => {
+		await queueJob(['a', 'b']);
+		await queue.wake();
+
+		const tracks = await listIndexedFiles(db);
+		expect(tracks.map((track) => track.path).toSorted()).toEqual([
+			path.join(library, 'Band', 'Night Drive', '1-01 First.opus'),
+			path.join(library, 'Band', 'Night Drive', '1-02 Second.opus'),
+		]);
+	});
+
+	it('never replaces a file of the library: the item fails and names it', async () => {
+		const existing = path.join(library, 'Band', 'Night Drive', '1-02 Second.opus');
+		await mkdir(path.dirname(existing), { recursive: true });
+		await writeFile(existing, 'mine');
+		const job = await queueJob();
+		await queue.wake();
+
+		const done = await jobOf(job.id);
+		expect(done).toMatchObject({ state: 'completed', completedCount: 2, failedCount: 1 });
+		const taken = done.items[1];
+		expect(taken?.state).toBe('failed');
+		expect(taken?.error?.reason).toBe('name-taken');
+		expect(taken?.error?.message).toMatch(/never replaces/);
+		expect(taken?.log.at(-1)).toBe(
+			`A file already exists at ${existing}. Luz left it as it is.`,
+		);
+		expect(readFileSync(existing, 'utf8')).toBe('mine');
+		// The third item still arrives
+		expect(existsSync(path.join(library, 'Band', 'Night Drive', '1-03 Third.opus'))).toBe(true);
+	});
+
+	it('fails the items when the library folder is unset or gone, and moves nothing', async () => {
+		await writeSettings(db, { musicLibraryPath: path.join(dataDir, 'gone') });
+		const job = await queueJob(['a']);
+		await queue.wake();
+
+		const [item] = (await jobOf(job.id)).items;
+		expect(item?.error?.reason).toBe('library-unavailable');
+		expect(existsSync(path.join(dataDir, 'gone'))).toBe(false);
+		expect(await listIndexedFiles(db)).toEqual([]);
+	});
+
+	it('fails an item whose move fails, and keeps the reason in its log', async () => {
+		move = async () => {
+			throw new Error('EACCES: permission denied');
+		};
+		const job = await queueJob(['a']);
+		await queue.wake();
+
+		const [item] = (await jobOf(job.id)).items;
+		expect(item?.error?.reason).toBe('move');
+		expect(item?.log.at(-1)).toMatch(/^Could not move the file to .*EACCES/);
+	});
+
+	it('never moves a file outside the library, whatever path the item holds', async () => {
+		const outside: string[] = [];
+		move = async (_source, target) => {
+			outside.push(target);
+			return 'moved';
+		};
+		const job = await queueJob(['a']);
+		await db.$client.execute({
+			sql: 'update download_items set path_without_extension = ? where job_id = ?',
+			args: ['../escape', job.id],
+		});
+		await queue.wake();
+
+		expect((await jobOf(job.id)).items[0]?.error?.reason).toBe('move');
+		expect(outside).toEqual([]);
 	});
 
 	it('records the progress of an item, a few updates per second at most', async () => {
@@ -311,11 +402,7 @@ describe('download queue', () => {
 		await queue.wake();
 
 		const [item] = (await jobOf(job.id)).items;
-		expect(item).toMatchObject({
-			state: 'completed',
-			step: 'converting',
-			progressPercent: 100,
-		});
+		expect(item).toMatchObject({ state: 'completed', step: 'added' });
 		expect(item?.speedBytesPerSecond).toBeUndefined();
 		const running = emitted.flatMap((event) =>
 			event.type === 'item' &&
@@ -682,6 +769,8 @@ describe('cancelling a real process', () => {
 			listFileNames,
 			createDirectory,
 			removeDirectory,
+			moveIntoLibrary,
+			indexLibraryFiles: (paths) => indexLibraryFiles(db, tagReader, paths),
 			events: { emit: () => undefined },
 			logger: { info: () => undefined, error: () => undefined },
 		});

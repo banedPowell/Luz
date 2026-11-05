@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
-import { lstat, mkdir, opendir, rm, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { copyFile, lstat, mkdir, opendir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -96,6 +97,37 @@ export async function statFile(filePath: string): Promise<FileEntry | undefined>
 }
 
 /**
+ * Like `statFile`, for a file under `root`, and only when no folder between the root and
+ * the file is a symbolic link or a junction: a link inside the library could lead outside.
+ */
+export async function statFileInside(
+	root: string,
+	filePath: string,
+): Promise<FileEntry | undefined> {
+	const top = path.resolve(root);
+	const parts = path.relative(top, path.resolve(filePath)).split(path.sep);
+	if (
+		parts.some((part) => part === '..' || part === '') ||
+		path.isAbsolute(parts.join(path.sep))
+	) {
+		return undefined;
+	}
+	// The folders between the root and the file, the root itself left out
+	let folder = top;
+	for (const part of parts.slice(0, -1)) {
+		folder = path.join(folder, part);
+		try {
+			if ((await lstat(folder)).isSymbolicLink()) {
+				return undefined;
+			}
+		} catch {
+			return undefined;
+		}
+	}
+	return statFile(filePath);
+}
+
+/**
  * The names of the regular files directly inside a directory, or an empty list when
  * there is no readable directory at this path. Links are not followed, like the walk.
  */
@@ -111,6 +143,36 @@ export async function listFileNames(directory: string): Promise<string[]> {
 	} catch {
 		return [];
 	}
+}
+
+/** What became of a file moved into the library: `exists` leaves both files as they were. */
+export type MoveOutcome = 'moved' | 'exists';
+
+/**
+ * Moves a finished download into the music library, creating the folders it needs. An
+ * existing file at the target is never replaced: the outcome says so and nothing changes.
+ * This is the only write to the music library (ADR 0007).
+ */
+export async function moveIntoLibrary(source: string, target: string): Promise<MoveOutcome> {
+	await mkdir(path.dirname(target), { recursive: true });
+	try {
+		// A copy, not a rename: the data directory and the library can be on different drives,
+		// and the exclusive flag refuses an existing target in the same step as the write
+		await copyFile(source, target, constants.COPYFILE_EXCL);
+	} catch (error) {
+		if (isErrorCode(error, 'EEXIST')) {
+			return 'exists';
+		}
+		// The target did not exist before the copy: what is there is our own partial file
+		await rm(target, { force: true });
+		throw error;
+	}
+	await rm(source, { force: true });
+	return 'moved';
+}
+
+function isErrorCode(error: unknown, code: string): boolean {
+	return error instanceof Error && 'code' in error && error.code === code;
 }
 
 /** Creates a folder of the data directory and its parents, if needed. */

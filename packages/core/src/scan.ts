@@ -35,14 +35,19 @@ export const maxScanIds = 500;
 
 const scanIds = z.array(z.number().int().positive()).min(1).max(maxScanIds);
 
+const scanPaths = z.array(z.string().trim().min(1)).min(1).max(maxScanIds);
+
 /**
- * What a scan looks at: the whole library folder, or only the tracks already indexed in
- * some albums or under some ids. A scoped scan never lists the folder, so it adds nothing.
+ * What a scan looks at: the whole library folder, only the tracks already indexed in some
+ * albums or under some ids, or some files of the library, by path (absolute, or relative to
+ * the library folder). An album or track scan never lists the folder, so it adds nothing; a
+ * files scan adds or updates its files and never removes a track.
  */
 export const scanScopeSchema = z.discriminatedUnion('kind', [
 	z.object({ kind: z.literal('library') }),
 	z.object({ kind: z.literal('albums'), ids: scanIds }),
 	z.object({ kind: z.literal('tracks'), ids: scanIds }),
+	z.object({ kind: z.literal('files'), paths: scanPaths }),
 ]);
 
 export type ScanScope = z.infer<typeof scanScopeSchema>;

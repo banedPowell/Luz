@@ -40,6 +40,31 @@ describe('scanRequestSchema', () => {
 		}
 	});
 
+	it('accepts a list of files, absolute or relative to the library', () => {
+		expect(
+			scanRequestSchema.parse({
+				scope: { kind: 'files', paths: ['/music/a.mp3', 'B/b.flac'] },
+			}),
+		).toEqual({ scope: { kind: 'files', paths: ['/music/a.mp3', 'B/b.flac'] }, force: false });
+	});
+
+	it('refuses an empty, blank or oversized list of files', () => {
+		for (const paths of [
+			[],
+			[''],
+			['  '],
+			[3],
+			Array.from({ length: maxScanIds + 1 }, (_, i) => `${i}.mp3`),
+		]) {
+			expect(scanRequestSchema.safeParse({ scope: { kind: 'files', paths } }).success).toBe(
+				false,
+			);
+		}
+		expect(scanRequestSchema.safeParse({ scope: { kind: 'files', ids: [1] } }).success).toBe(
+			false,
+		);
+	});
+
 	it('refuses an unknown scope', () => {
 		expect(scanRequestSchema.safeParse({ scope: { kind: 'artists', ids: [1] } }).success).toBe(
 			false,
