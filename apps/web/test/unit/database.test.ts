@@ -42,8 +42,9 @@ describe('loadMigrations', () => {
 	});
 
 	// Rewriting a migration a database has applied makes it pending again under its new
-	// date: its statements then run twice and the server fails to start. Pin each one here once
-	// merged; unmerged ones too may have been applied by a branch's dev database. Add a migration instead.
+	// date: its statements then run twice and the server fails to start. Even an unmerged one may
+	// have been applied by a branch's dev database, so every migration is pinned here by the PR
+	// that adds it, and the list must match the folder exactly. Add a migration instead.
 	it('keeps the migrations already applied unchanged', async () => {
 		const hashes = Object.fromEntries(
 			(await loadMigrations(readMigrationsFolder)).map((migration) => [
@@ -52,7 +53,7 @@ describe('loadMigrations', () => {
 			]),
 		);
 
-		expect(hashes).toMatchObject({
+		expect(hashes).toEqual({
 			'0000_create_settings':
 				'1793526971211:d7d1b064768ef5bda0797cfa4696630fc8dd7422f8a29b0aab6bc05dbb9128d6',
 			'0001_create_library':
@@ -61,6 +62,10 @@ describe('loadMigrations', () => {
 				'1793549739047:90d0e6f409be9f636ac8997cabfc66973dc15ada2388d04715e4cb1c849d9423',
 			'0003_add_track_audio':
 				'1793821056793:369966096b82a110baad4acf547e608251cebabf79d6d9cdb44b657bd98b5682',
+			'0004_drop_settings_theme':
+				'1793824314139:5f43ff380676813389f8cf3a1f8342716efbf2e1f6b89ae9c23f3f575f115246',
+			'0005_add_track_added_at':
+				'1793866538269:5d6abd820ee2da5083dffb963ef0b360ed74759c7335668f810359047edd0974',
 		});
 	});
 

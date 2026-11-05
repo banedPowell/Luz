@@ -20,5 +20,5 @@ Closes #
 - [ ] Checks pass locally (see CONTRIBUTING.md)
 - [ ] Tests cover the change
 - [ ] Checked in the browser if the UI changes (light, dark, narrow screen)
-- [ ] Migration generated if the database schema changes
+- [ ] Migration generated and pinned in `database.test.ts` if the database schema changes
 - [ ] Docs updated if behaviour, commands or decisions change (README, CLAUDE.md, ROADMAP, ADR)
