@@ -6,6 +6,7 @@ import { h } from 'vue';
 const { query } = useListQuery(trackListQuerySchema);
 const { data } = await useFetch('/api/library/tracks', { query });
 const { sorting, sortable } = useSortableHeaders<TrackSummary>(query);
+const selection = useListSelection(() => data.value?.items ?? []);
 
 // The artist and the year have no column: the selector still sorts by them
 const sortOptions = [
@@ -21,6 +22,8 @@ const sortOptions = [
 const wide = 'hidden md:table-cell';
 
 const columns: TableColumn<TrackSummary>[] = [
+	// The checkboxes of the selection bar
+	{ id: 'select', meta: { class: { th: 'w-px pe-0', td: 'w-px pe-0' } } },
 	// Narrow screens show compact rows, cover then title, as the interface principles ask
 	{
 		id: 'number',
@@ -80,6 +83,20 @@ function rowNumber(index: number): number {
 			:sorting-options="{ manualSorting: true }"
 			caption="Tracks"
 		>
+			<template #select-header>
+				<SelectCheckbox
+					:model-value="selection.all.value"
+					label="Select all tracks on this page"
+					@update:model-value="selection.toggleAll"
+				/>
+			</template>
+			<template #select-cell="{ row }">
+				<SelectCheckbox
+					:model-value="selection.isSelected(row.original.id)"
+					:label="`Select ${trackTitle(row.original)}`"
+					@update:model-value="(value) => selection.toggle(row.original.id, value)"
+				/>
+			</template>
 			<template #number-cell="{ row }">{{ rowNumber(row.index) }}</template>
 			<template #title-cell="{ row }">
 				<div class="flex items-center gap-3">
@@ -108,5 +125,6 @@ function rowNumber(index: number): number {
 				<TrackMenu :track="row.original" />
 			</template>
 		</UTable>
+		<LibrarySelectionBar :selection="selection" kind="tracks" />
 	</LibraryList>
 </template>

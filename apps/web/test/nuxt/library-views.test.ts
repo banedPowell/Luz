@@ -160,6 +160,22 @@ async function mountAt(route: string) {
 	return mountSuspended(LibraryPages, { route });
 }
 
+type Mounted = Awaited<ReturnType<typeof mountAt>>;
+
+// A checkbox with a visible label is named by it rather than by aria-label
+function checkbox(wrapper: Mounted, label: string) {
+	const named = wrapper.find(`button[role="checkbox"][aria-label="${label}"]`);
+	if (named.exists()) {
+		return named;
+	}
+	const text = wrapper.findAll('label').find((element) => element.text() === label);
+	return wrapper.find(`button[role="checkbox"][id="${text?.attributes('for') ?? ''}"]`);
+}
+
+function selectionBar(wrapper: Mounted) {
+	return wrapper.find('section[aria-label="Selection"]');
+}
+
 describe('library views', () => {
 	beforeEach(() => {
 		clearNuxtState();
@@ -248,7 +264,9 @@ describe('library views', () => {
 	it('shows the tracks with their artist under the title, then album, duration and date added', async () => {
 		const wrapper = await mountAt('/library?page=2');
 
+		// The first column holds the checkboxes of the selection bar
 		expect(wrapper.findAll('thead th').map((cell) => cell.text())).toEqual([
+			'',
 			'#',
 			'Title',
 			'Album',
@@ -258,13 +276,13 @@ describe('library views', () => {
 		]);
 		const cells = wrapper.findAll('tbody tr')[0]?.findAll('td') ?? [];
 		// Numbered across pages
-		expect(cells[0]?.text()).toBe('51');
-		const title = cells[1]?.findAll('span[title]') ?? [];
+		expect(cells[1]?.text()).toBe('51');
+		const title = cells[2]?.findAll('span[title]') ?? [];
 		expect(title.map((line) => [line.text(), line.attributes('title')])).toEqual([
 			['Track 1', 'Track 1'],
 			['Alpha', 'Alpha'],
 		]);
-		expect(cells[4]?.text()).toBe(
+		expect(cells[5]?.text()).toBe(
 			new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
 				Date.UTC(2026, 0, 15, 12),
 			),
@@ -344,8 +362,8 @@ describe('library views', () => {
 		expect(title.classes()).toContain('truncate');
 		// The cells shrink to the room left instead of widening the table
 		const cells = row.findAll('td');
-		expect(cells[0]?.classes()).toContain('max-w-0');
-		expect(cells[1]?.classes()).toEqual(expect.arrayContaining(['max-w-0', 'hidden']));
+		expect(cells[1]?.classes()).toContain('max-w-0');
+		expect(cells[2]?.classes()).toEqual(expect.arrayContaining(['max-w-0', 'hidden']));
 		// Under the title on narrow screens, in its own column from sm up
 		const artists = row.findAll('a[href="/library/artists/1"]');
 		expect(artists.map((link) => link.classes())).toEqual([
@@ -353,7 +371,7 @@ describe('library views', () => {
 			expect.arrayContaining(['truncate']),
 		]);
 		expect(artists.map((link) => link.attributes('title'))).toEqual(['Alpha', 'Alpha']);
-		expect(wrapper.find('thead th:nth-child(2)').classes()).toContain('hidden');
+		expect(wrapper.find('thead th:nth-child(3)').classes()).toContain('hidden');
 	});
 
 	it('shows the quality of each album in the list', async () => {
@@ -609,6 +627,7 @@ describe('library views', () => {
 		const wrapper = await mountAt('/library/albums/10');
 
 		expect(wrapper.findAll('thead th').map((cell) => cell.text())).toEqual([
+			'',
 			'#',
 			'Title',
 			'Duration',
@@ -620,8 +639,8 @@ describe('library views', () => {
 		expect(rows[0]?.text()).not.toContain('FLAC');
 		expect(rows[0]?.text()).not.toContain('1.flac');
 		// An untitled track shows its file name as its title; an old one has no date added
-		expect(rows[1]?.findAll('td')[1]?.text()).toContain('untitled.mp3');
-		expect(rows[1]?.findAll('td')[3]?.text()).toBe('');
+		expect(rows[1]?.findAll('td')[2]?.text()).toContain('untitled.mp3');
+		expect(rows[1]?.findAll('td')[4]?.text()).toBe('');
 		expect(rows[0]?.find('button[aria-label="Show details of Track 1"]').exists()).toBe(true);
 	});
 
@@ -728,6 +747,166 @@ describe('library views', () => {
 			expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
 				'no longer in the library',
 			);
+		});
+	});
+
+	describe('selection bar', () => {
+		it('appears with the count once a row is checked, and leaves once none is', async () => {
+			const wrapper = await mountAt('/library');
+			expect(selectionBar(wrapper).exists()).toBe(false);
+
+			await checkbox(wrapper, 'Select Track 1').trigger('click');
+			expect(checkbox(wrapper, 'Select Track 1').attributes('aria-checked')).toBe('true');
+			expect(selectionBar(wrapper).text()).toContain('1 track selected');
+			expect(
+				checkbox(wrapper, 'Select all tracks on this page').attributes('aria-checked'),
+			).toBe('mixed');
+
+			await checkbox(wrapper, 'Select Track 1').trigger('click');
+			expect(selectionBar(wrapper).exists()).toBe(false);
+		});
+
+		it.each([
+			['the tracks', '/library', 'table'],
+			['the album grid', '/library/albums?view=grid', 'ul[aria-label="Albums"]'],
+		])('follows %s, so checking a row never moves the rows', async (_, route, list) => {
+			const wrapper = await mountAt(route);
+
+			await wrapper
+				.find(
+					'button[role="checkbox"][aria-label^="Select "]:not([aria-label^="Select all"])',
+				)
+				.trigger('click');
+
+			const position = wrapper
+				.find(list)
+				.element.compareDocumentPosition(selectionBar(wrapper).element);
+			expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+			// Always on screen, without scrolling to the end of the list
+			expect(selectionBar(wrapper).classes()).toContain('fixed');
+		});
+
+		it('checks every row of the page at once, and clears them from the bar', async () => {
+			const wrapper = await mountAt('/library');
+
+			await checkbox(wrapper, 'Select all tracks on this page').trigger('click');
+			expect(selectionBar(wrapper).text()).toContain('2 tracks selected');
+			expect(checkbox(wrapper, 'Select untagged.mp3').attributes('aria-checked')).toBe(
+				'true',
+			);
+
+			await selectionBar(wrapper)
+				.find('button[aria-label="Clear selection"]')
+				.trigger('click');
+			expect(selectionBar(wrapper).exists()).toBe(false);
+			expect(checkbox(wrapper, 'Select Track 1').attributes('aria-checked')).toBe('false');
+		});
+
+		it('rescans the checked tracks, then clears the selection', async () => {
+			const wrapper = await mountAt('/library');
+			await checkbox(wrapper, 'Select all tracks on this page').trigger('click');
+
+			const rescan = selectionBar(wrapper)
+				.findAll('button')
+				.find((button) => button.text() === 'Rescan');
+			await rescan?.trigger('click');
+
+			await vi.waitFor(() => {
+				expect(selectionBar(wrapper).exists()).toBe(false);
+			});
+			expect(scanRequests).toEqual([{ scope: { kind: 'tracks', ids: [1, 2] }, force: true }]);
+			expect(document.body.textContent).toContain('Rescan complete');
+		});
+
+		it('keeps the selection when a rescan is refused', async () => {
+			scanRefused = true;
+			const wrapper = await mountAt('/library');
+			await checkbox(wrapper, 'Select Track 1').trigger('click');
+
+			await selectionBar(wrapper)
+				.findAll('button')
+				.find((button) => button.text() === 'Rescan')
+				?.trigger('click');
+
+			await vi.waitFor(() => {
+				expect(document.body.textContent).toContain('Could not rescan');
+			});
+			expect(selectionBar(wrapper).text()).toContain('1 track selected');
+		});
+
+		it.each([
+			['the album table', '/library/albums'],
+			['the album grid', '/library/albums?view=grid'],
+		])('rescans the checked albums of %s', async (_, route) => {
+			const wrapper = await mountAt(route);
+
+			await checkbox(wrapper, 'Select all albums on this page').trigger('click');
+			await checkbox(wrapper, 'Select Unknown album').trigger('click');
+			expect(selectionBar(wrapper).text()).toContain('1 album selected');
+			await selectionBar(wrapper)
+				.findAll('button')
+				.find((button) => button.text() === 'Rescan')
+				?.trigger('click');
+
+			await vi.waitFor(() => {
+				expect(scanRequests).toEqual([
+					{ scope: { kind: 'albums', ids: [10] }, force: true },
+				]);
+			});
+		});
+
+		it.each([
+			['the page', '/library?page=2'],
+			['the sort', '/library?sort=year'],
+			['the order', '/library?order=desc'],
+		])('clears the selection when %s changes', async (_, target) => {
+			const wrapper = await mountAt('/library');
+			await checkbox(wrapper, 'Select Track 1').trigger('click');
+
+			await useRouter().push(target);
+
+			await vi.waitFor(() => {
+				expect(selectionBar(wrapper).exists()).toBe(false);
+			});
+		});
+
+		it('clears the selection when the albums switch to the grid', async () => {
+			const wrapper = await mountAt('/library/albums');
+			await checkbox(wrapper, 'Select Alpha One').trigger('click');
+
+			await useRouter().push('/library/albums?view=grid');
+
+			await vi.waitFor(() => {
+				expect(wrapper.find('ul[aria-label="Albums"]').exists()).toBe(true);
+			});
+			expect(selectionBar(wrapper).exists()).toBe(false);
+			expect(checkbox(wrapper, 'Select Alpha One').attributes('aria-checked')).toBe('false');
+		});
+
+		it('selects the tracks of an album page', async () => {
+			const wrapper = await mountAt('/library/albums/10');
+
+			await checkbox(wrapper, 'Select all tracks of Alpha One').trigger('click');
+
+			expect(selectionBar(wrapper).text()).toContain('3 tracks selected');
+		});
+
+		it('shares one selection and one bar between the albums of an artist page', async () => {
+			artist = {
+				...artist,
+				albums: [album, { ...album, id: 12, title: 'Alpha Two', tracks: [track(4)] }],
+			};
+			const wrapper = await mountAt('/library/artists/1');
+
+			await checkbox(wrapper, 'Select Track 4').trigger('click');
+			await checkbox(wrapper, 'Select all tracks of Alpha One').trigger('click');
+
+			const bars = wrapper.findAll('section[aria-label="Selection"]');
+			expect(bars).toHaveLength(1);
+			expect(bars[0]?.text()).toContain('4 tracks selected');
+			expect(
+				checkbox(wrapper, 'Select all tracks of Alpha Two').attributes('aria-checked'),
+			).toBe('true');
 		});
 	});
 });

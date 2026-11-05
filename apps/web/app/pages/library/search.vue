@@ -17,6 +17,9 @@ const found = computed(
 		results.value.tracks.total + results.value.albums.total + results.value.artists.total > 0,
 );
 
+// Only the tracks have a selection: rescanning the albums found stays in their row menu
+const selection = useListSelection(() => results.value?.tracks.items ?? []);
+
 function countOf(group: SearchGroup<unknown>, word: string): string {
 	return group.items.length < group.total
 		? `First ${group.items.length} of ${plural(group.total, word)}`
@@ -45,9 +48,14 @@ function countOf(group: SearchGroup<unknown>, word: string): string {
 			class="flex flex-col gap-2"
 			aria-labelledby="search-tracks"
 		>
-			<div class="flex items-baseline justify-between gap-3">
+			<div class="flex items-center gap-3">
+				<SelectCheckbox
+					:model-value="selection.all.value"
+					label="Select all tracks found"
+					@update:model-value="selection.toggleAll"
+				/>
 				<h2 id="search-tracks" class="font-semibold text-highlighted">Tracks</h2>
-				<p class="text-sm text-muted">{{ countOf(results.tracks, 'track') }}</p>
+				<p class="ms-auto text-sm text-muted">{{ countOf(results.tracks, 'track') }}</p>
 			</div>
 			<ul class="divide-y divide-default">
 				<li
@@ -55,6 +63,11 @@ function countOf(group: SearchGroup<unknown>, word: string): string {
 					:key="track.id"
 					class="flex items-center gap-3 py-2"
 				>
+					<SelectCheckbox
+						:model-value="selection.isSelected(track.id)"
+						:label="`Select ${trackTitle(track)}`"
+						@update:model-value="(value) => selection.toggle(track.id, value)"
+					/>
 					<AlbumCover
 						:album="track.album.title"
 						:artist="track.artist.name"
@@ -71,6 +84,7 @@ function countOf(group: SearchGroup<unknown>, word: string): string {
 					<TrackMenu :track="track" />
 				</li>
 			</ul>
+			<LibrarySelectionBar :selection="selection" kind="tracks" />
 		</section>
 
 		<section

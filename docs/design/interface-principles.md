@@ -25,7 +25,7 @@ Spotify and Tidal are references for composition only: sidebar, tabs, covers, se
 - The bottom of the sidebar is where an account menu will go. Nothing is drawn until accounts exist.
 - Device profiles will be a sidebar page and an "Export to…" action in selection and row menus, added when the feature exists.
 - Library page: tabs Tracks, Albums, Artists; a table/grid switch; a search field. Detail pages for an album and an artist.
-- Selection bar: appears above any list when rows are checked. Info button ("i", the track details) and row menu ("…") on every row. Both carry only actions that exist.
+- Selection bar: floats at the bottom of the screen, as wide as its list, while rows of a list are checked, so checking a row never moves the rows and the actions are reachable without scrolling. Info button ("i", the track details) and row menu ("…") on every row. Both carry only actions that exist.
 - Track tables: `#`, title with the artist under it (capped width, the full text on hover), album, duration, date added; release and technical details sit behind the info button. Columns without a header to click (artist, year) stay sortable from the sort selector, grouped with its order button.
 - Home: library folder and last scan, library health (missing covers, missing artist, probable duplicates, missing files; each opens a filtered list), recently added.
 - Downloads: URL field, preview of what will be downloaded with the final path of each file, then the queue.
