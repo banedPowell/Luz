@@ -15,7 +15,7 @@ Spotify and Tidal are references for composition only: sidebar, tabs, covers, se
 3. **No placeholder controls.** A button exists only when it works. Room for future features (accounts, device profiles) is reserved in the layout, never drawn.
 4. **Same pattern everywhere.** A list is a list: tables and grids share the selection bar, the row menu and the empty state. A feature added later plugs into these places.
 5. **Use the space.** Tables use the available width without horizontal scrolling; content width is capped around 1440 px. Reading pages (settings, detail text) keep a narrower column.
-6. **Plain language.** Download steps read "Converting to FLAC", not log lines. Technical detail sits behind a "Show details" toggle, closed by default.
+6. **Plain language.** Download steps read "Converting to MP3", not log lines. Technical detail sits behind a "Show details" toggle, closed by default.
 7. **Safe by default.** Anything that changes or deletes files is explicit and confirmed (see [CLAUDE.md](../../CLAUDE.md)).
 
 ## Layout
@@ -27,7 +27,7 @@ Spotify and Tidal are references for composition only: sidebar, tabs, covers, se
 - Library page: tabs Tracks, Albums, Artists; a table/grid switch; a search field. Detail pages for an album and an artist.
 - Selection bar: floats at the bottom of the screen, as wide as its list, while rows of a list are checked, so checking a row never moves the rows and the actions are reachable without scrolling. Info button ("i", the track details) and row menu ("…") on every row. Both carry only actions that exist.
 - Track tables: `#`, title with the artist under it (capped width, the full text on hover), album, duration, date added; release and technical details sit behind the info button. Columns without a header to click (artist, year) stay sortable from the sort selector, grouped with its order button.
-- Home: library folder and last scan, library health (missing covers, missing artist, probable duplicates, missing files; each opens a filtered list), recently added.
+- Home: library folder and last scan with its counts, library health (missing artist from v0.3; missing covers and probable duplicates from v0.4; each opens a filtered list), recently added. A scan removes the tracks whose file is gone, so there is no list of missing files to show.
 - Downloads: URL field, preview of what will be downloaded with the final path of each file, then the queue.
 
 ## Mobile
