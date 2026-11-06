@@ -5,6 +5,9 @@ export default defineEventHandler((event) => {
 	const unsubscribe = useDownloadEvents().subscribe((downloadEvent) => {
 		void stream.push({ event: downloadEvent.type, data: JSON.stringify(downloadEvent) });
 	});
+	// The response starts with the first message: without one now, the browser would only
+	// see the stream open, and the client load the list, at the first event or ping
+	void stream.push({ event: 'ping', data: '' });
 	// A ping now and then keeps proxies from closing a stream that has nothing to say
 	const keepAlive = setInterval(() => void stream.push({ event: 'ping', data: '' }), 25_000);
 	stream.onClosed(() => {

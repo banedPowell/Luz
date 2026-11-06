@@ -27,6 +27,7 @@ const appConfig = useAppConfig();
 const icons = appConfig.ui.icons;
 const toast = useToast();
 const { settings } = useSettings();
+const { added } = useDownloads();
 
 // A missing yt-dlp is known from the startup check (#16), before any analysis is tried
 const { data: tools } = await useFetch<ToolStatus[]>('/api/tools');
@@ -156,6 +157,7 @@ async function download() {
 				outputFormat: outputFormat.value,
 			},
 		});
+		added(job);
 		preview.value = undefined;
 		selected.value = new Set();
 		url.value = '';
@@ -344,5 +346,7 @@ async function download() {
 				/>
 			</FloatingBar>
 		</section>
+
+		<DownloadQueue />
 	</div>
 </template>
