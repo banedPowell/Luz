@@ -55,6 +55,7 @@ Traps already met while building Luz, with their cause and the fix. Read only th
 - **The codec decides losslessness, never the extension**: ALAC and AAC both use `.m4a` (`codecName()` in core). A track with `lossless` null was indexed before the column existed and is read again by the next scan, even if unchanged.
 - **A scoped scan (album or track ids) adds nothing**: it only compares the tracks already indexed in its scope, file by file (`statFile`), and removes those whose file is gone or left the library folder. New files appear through a library scan, or a files scope (paths), which adds and updates but never removes a track. A download indexes what it moves with `indexLibraryFiles()`, which waits for a running scan instead of throwing `scan-running`.
 - **Every searchable name needs its `search_*` column**, holding `searchKey()` from core, written with the name and backfilled at startup; search matches it with `LIKE`, so a name written without it is never found.
+- **h3's `createEventStream` sends no headers before its first message**: the browser fires `open` (where the client loads the list) only then. `GET /api/downloads/events` pushes a `ping` at once; a new stream must do the same, or its client waits for the first event or keep-alive.
 - **`curl` on an error route returns JSON** unless it sends `Accept: text/html`.
 - **Never display an error's `statusText` or `message`**: a 404's `statusText` contains the path, and other messages can come from the server.
 

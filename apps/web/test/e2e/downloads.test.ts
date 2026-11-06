@@ -49,6 +49,10 @@ describe('downloads API', async () => {
 		const response = await fetch('/api/downloads/events', { signal: controller.signal });
 		expect(response.status).toBe(200);
 		expect(response.headers.get('content-type')).toContain('text/event-stream');
+		// A browser only fires `open`, where the client loads the list, once something arrives
+		const reader = response.body?.getReader();
+		const first = await reader?.read();
+		expect(new TextDecoder().decode(first?.value)).toContain('event: ping');
 		controller.abort();
 	});
 

@@ -60,6 +60,7 @@ watch(
 			<template #footer="{ state }">
 				<!-- The account menu will go here, under Settings: nothing is drawn before accounts exist -->
 				<div class="flex w-full flex-col gap-3">
+					<DownloadStatus :collapsed="state === 'collapsed'" />
 					<ThemeSelect :collapsed="state === 'collapsed'" />
 					<AppNavigation placement="footer" :collapsed="state === 'collapsed'" />
 				</div>
@@ -81,6 +82,8 @@ watch(
 					@click="open = !open"
 				/>
 				<h1 class="flex-1 truncate text-lg font-semibold text-highlighted">{{ title }}</h1>
+				<!-- The sidebar is a drawer on narrow screens: the status stays in view up here -->
+				<div class="md:hidden"><DownloadStatus variant="bar" /></div>
 			</header>
 			<!-- tabindex="-1" lets the skip link move focus here, not only scroll -->
 			<main

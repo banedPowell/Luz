@@ -32,7 +32,7 @@ Spotify and Tidal are references for composition only: sidebar, tabs, covers, se
 
 ## Mobile
 
-Under the `md` breakpoint the sidebar becomes a drawer opened from the top bar. Tables become compact rows (cover, title with its artist under it, then the format of a track or the quality of an album). The download status stays visible at the bottom. Touch targets are at least 40 px.
+Under the `md` breakpoint the sidebar becomes a drawer opened from the top bar. Tables become compact rows (cover, title with its artist under it, then the format of a track or the quality of an album). The download status stays visible in the top bar, as a compact link (icon and percentage), since the bottom of the screen belongs to the selection bars. Touch targets are at least 40 px.
 
 ## Visual identity
 

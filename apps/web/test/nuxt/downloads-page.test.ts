@@ -225,6 +225,10 @@ describe('downloads page', () => {
 		await vi.waitFor(() => {
 			expect(document.body.textContent).toContain('Download queued');
 		});
+		// In the queue at once, before the stream says so
+		expect(wrapper.find('ul[aria-label="Downloads"] li[aria-label="Discovery"]').exists()).toBe(
+			true,
+		);
 	});
 
 	it('sends a format changed before starting', async () => {

@@ -4,6 +4,7 @@ export * from './download-analysis.ts';
 export * from './download-format.ts';
 export * from './download-jobs.ts';
 export * from './download-progress.ts';
+export * from './download-queue.ts';
 export * from './format.ts';
 export * from './library.ts';
 export * from './naming.ts';
